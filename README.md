@@ -1,3 +1,5 @@
+\[![CatSmoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/assests/logo.png)\]
+
 # CatSmoothing: Python Wrapper for WhiteboxTools
 
 [![PyPI](https://img.shields.io/pypi/v/catsmoothing)](https://pypi.org/project/catsmoothing/)
@@ -11,13 +13,24 @@
 
 ## Overview
 
-**CatSmoothing**
+**CatSmoothing** smooths [Shapely](https://shapely.readthedocs.io)
+geometries, `LineString` and `(Multi)Polygon`, using the Catmull-Rom spline algorithm.
+The implementation is based on the
+[Splines](https://github.com/AudioSceneDescriptionFormat/splines)
+library, but offers performance improvements and additional features.
 
 You can try CatSmoothing directly in your browser by clicking the Binder badge above.
 
 ## Key Features
 
-
+- Creating splines from 2D/3D vertices of a line that allows computing n-th derivatives
+- Smoothing geometries with Centripetal Catmull-Rom splines with **uniform spacing**
+    (spacing is determined iteratively based on the arc length of the input geometry)
+- Computing tangent vectors at each vertex of a line
+- Optional Gaussian filtering to reduce noise in input geometries before smoothing
+    (requires `scipy` to be installed)
+- Automatically using `opt-einsum` for efficient computation of the spline coefficients,
+    if it is installed
 
 ## Installation
 
@@ -37,28 +50,62 @@ micromamba install -c conda-forge catsmoothing
 
 ## Quick Start
 
-
+CatSmoothing provide one class called `CatmullRom` that is general purpose,
+Catmull-Rom spline interpolation class. You can tweak the `alpha` parameter of
+the class to interpolate with different versions of the Catmull-Rom spline
+from 2D/3D vertices of a line and compute n-th derivatives.
+For smoothing geometries, CatSmoothing uses the centripetal Catmull-Rom spline
+algorithm, i.e., `alpha=0.5`. There are two functions that can be used
+for smoothing geometries: `smooth_line` and `smooth_polygon`.
 
 ### Basic Usage
 
-
-
-Example usage:
+For fitting a Catmull-Rom spline to a line, we can use the following code:
 
 ```python
-import catsmoothing
-from pathlib import Path
+from catsmoothing import CatmullRom
 
-src_dir = Path("path/to/input_files/")
-wbt_args = {
-    "BreachDepressions": ["-i=dem.tif", "--fill_pits", "-o=dem_corr.tif"],
-    # Additional tools...
-}
 
-catsmoothing.whitebox_tools(src_dir, wbt_args)
+verts = [(0, 0), (0, 0.5), (1.5, 1.5), (1.6, 1.5), (3, 0.2), (3, 0)]
+n_pts = 15
+for alpha in (0, 0.5, 1):
+    s = CatmullRom(verts, alpha=alpha, bc_types="closed")
+    dots = int((s.grid[-1] - s.grid[0]) * n_pts) + 1
+    distances = s.grid[0] + np.arange(dots) / n_pts
+    smoothed[alpha] = s.evaluate(distances)
 ```
 
-![Strahler Stream Order](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/examples/images/stream_order.png)
+![Catmull-Rom Splines](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/examples/images/alpha.png)
+
+For smoothing a geometry, we can use the following code:
+
+```python
+from shapely import Polygon
+import catsmoothing as cs
+
+
+poly = Polygon(verts)
+ploy_smoothed = cs.smooth_polygon(poly, n_pts=50)
+```
+
+![Polygon Smoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/examples/images/poly.png)
+
+For smoothing a noisy line, we can use the following code:
+
+```python
+import numpy as np
+from shapely import LineString
+import catsmoothing as cs
+
+
+rng = np.random.default_rng(123)
+x = np.linspace(-3, 2.5, 50)
+y = np.exp(-(x**2)) + 0.1 * rng.standard_normal(50)
+line = LineString(np.c_[x, y])
+line_smoothed = cs.smooth_linestring(line, n_pts=30, gaussian_sigma=2)
+```
+
+![Line Smoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/examples/images/line.png)
 
 For more examples, visit the [documentation](https://catsmoothing.readthedocs.io).
 

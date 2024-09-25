@@ -1,25 +1,38 @@
-"""Catmull--Rom spline based on `splines <https://github.com/AudioSceneDescriptionFormat/splines>`__."""
+"""Catmull-Rom spline based on [splines](https://github.com/AudioSceneDescriptionFormat/splines) library."""
 
-from typing import TYPE_CHECKING, Literal, TypeVar, overload
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import numpy as np
-import numpy.typing as npt
 import shapely
-from shapely import LineString
-
+from shapely import LineString, MultiPolygon, Polygon
 
 if TYPE_CHECKING:
-    FloatArray = npt.NDArray[np.float64]
+    from numpy.typing import NDArray
+
+    FloatArray = NDArray[np.float64]
     BCType = Literal["natural", "closed"]
-    LineType = TypeVar("LineType", LineString, FloatArray)
+    ArrayLike = list[tuple[float, float]] | list[tuple[float, float, float]] | FloatArray
+    PolygonType = TypeVar("PolygonType", Polygon, MultiPolygon)
 
 
-__all__ = ["CatmullRom", "fit_catmull_rom"]
+def einsum(*args: Any) -> FloatArray:
+    try:
+        import opt_einsum  # pyright: ignore[reportMissingImports]
+
+        return opt_einsum.contract(*args)
+    except ImportError:
+        return np.einsum(*args, optimize=True)
+
+
+__all__ = ["CatmullRom", "smooth_linestring", "smooth_polygon", "compute_tangents"]
 
 
 def _check_grid(
     grid: list[float] | FloatArray | None, alpha: float | None, vertices: FloatArray
 ) -> FloatArray:
+    """Check grid values and return them."""
     if grid is not None and alpha is not None:
         raise TypeError("Only one of {grid, alpha} is allowed")
 
@@ -41,6 +54,7 @@ def _check_bc_types(
 ) -> tuple[
     BCType | float, BCType | float, zip[tuple[float, float, float]], zip[tuple[float, float, float]]
 ]:
+    """Check boundary conditions and return them."""
     if isinstance(bc_types, tuple | list) and len(bc_types) == 2:
         start, end = bc_types
     elif bc_types == "closed":
@@ -62,6 +76,7 @@ def _check_bc_types(
 def _calculate_tangent(
     points: tuple[float, float, float], times: tuple[float, float, float]
 ) -> float:
+    """Calculate the tangent at a point."""
     x_1, x0, x1 = points
     t_1, t0, t1 = times
     delta_1 = t0 - t_1
@@ -77,6 +92,7 @@ def _end_tangent(
     times: FloatArray,
     other_tangent: float,
 ) -> float:
+    """Calculate tangent at the end points."""
     if bc_type == "natural":
         x0, x1 = vertices
         t0, t1 = times
@@ -88,6 +104,7 @@ def _end_tangent(
 def _check_tangents(
     vertices: FloatArray, grid: FloatArray, bc_types: BCType | tuple[float, float]
 ) -> FloatArray:
+    """Check tangents and return them."""
     start, end, v_triples, g_triples = _check_bc_types(bc_types, vertices, grid)
     # Compute tangents and then duplicate them since incoming and outgoing are the same
     tangents = [
@@ -114,7 +131,7 @@ def _check_tangents(
 
 
 class CatmullRom:
-    """Catmull--Rom spline based on :cite:t:`catmull1974splines`.
+    """Catmull-Rom spline based on Catmull and Rom 1974 [1].
 
     Parameters
     ----------
@@ -124,7 +141,7 @@ class CatmullRom:
         Sequence of parameter values. Must be strictly increasing.
         If not specified, a uniform grid is used (0, 1, 2, 3, ...).
     alpha : float, optional
-        Catmull--Rom parameter. If specified, ``grid`` is ignored.
+        Catmull-Rom parameter. If specified, ``grid`` is ignored.
     bc_types : {'closed', 'natural', (start_tangent, end_tangent)}, optional
         Start/end conditions. If 'closed', the first vertex is re-used as
         last vertex and an additional ``grid`` value has to be specified.
@@ -138,11 +155,17 @@ class CatmullRom:
     >>> s = CatmullRom(verts, alpha=0.5)
     >>> grid = np.linspace(0, s.grid[-1], 5)
     >>> s.evaluate(grid)
-    array([[0.        , 0.        ],
-        [0.78226261, 0.93404706],
-        [1.57197579, 0.39074521],
-        [2.3194772 , 0.20959155],
-        [3.        , 1.5       ]])
+    array([[0. , 0. ],
+           [0.78226261, 0.93404706],
+           [1.57197579, 0.39074521],
+           [2.3194772 , 0.20959155],
+           [3. , 1.5 ]])
+
+    References
+    ----------
+    [1] E. Catmull and R. Rom, "A Class of Local Interpolating Splines,"
+        in Computer Aided Geometric Design, 1974.
+        [DOI: 10.1016/B978-0-12-079050-0.50020-5](https://doi.org/10.1016/B978-0-12-079050-0.50020-5)
     """
 
     def __init__(
@@ -163,8 +186,8 @@ class CatmullRom:
         if gaussian_sigma is not None:
             try:
                 from scipy.ndimage import gaussian_filter1d
-            except ImportError:
-                raise ImportError("`scipy` is required for Gaussian smoothing")
+            except ImportError as e:
+                raise ImportError("`scipy` is required for Gaussian smoothing") from e
             original_start = self.vertices[0].copy()
             original_end = self.vertices[-1].copy()
             self.vertices = gaussian_filter1d(self.vertices, sigma=gaussian_sigma, axis=0)
@@ -183,17 +206,17 @@ class CatmullRom:
         v1 = tangents[1::2]
         dt = t1 - t0
         segment_data = np.stack([x0, x1, dt[:, np.newaxis] * v0, dt[:, np.newaxis] * v1], axis=-1)
-        self.segments = np.einsum("ij,klj->kil", matrix, segment_data, optimize=True)
+        self.segments = einsum("ij,klj->kil", matrix, segment_data)
 
     def evaluate(self, distances: list[tuple[float, float]] | FloatArray, n: int = 0) -> FloatArray:
         """Get value (or n-th derivative) at given parameter value(s).
 
         Parameters
         ----------
-        times : array_like
-            Parameter value(s) to evaluate the spline at.
+        distances : array_like
+            Distance(s) along the curve to evaluate.
         n : int, optional
-            Order of derivative, by default 0.
+            Order of derivative, by default 0, i.e., the value itself.
 
         Returns
         -------
@@ -214,8 +237,10 @@ class CatmullRom:
         coefficients = np.array([self.segments[i][seg_slice] for i in idxs])
         powers = np.arange(coefficients.shape[1])[::-1]
         weights = np.prod([powers + 1 + i for i in range(n)]) / np.power(norm[:, np.newaxis], n)
-        values = np.einsum(
-            "ij,ijk->ik", np.power(t_normalized[:, np.newaxis], powers) * weights, coefficients, optimize=True
+        values = einsum(
+            "ij,ijk->ik",
+            np.power(t_normalized[:, np.newaxis], powers) * weights,
+            coefficients,
         )
         return values
 
@@ -224,7 +249,6 @@ def _uniform_distances(
     catmull: CatmullRom, n_pts: int, tolerance: float, max_iterations: int
 ) -> FloatArray:
     """Compute uniform distances for given number of points."""
-    # Initial guess
     dis_arr = np.linspace(0, catmull.grid[-1], n_pts)
     for _ in range(max_iterations):
         points = catmull.evaluate(dis_arr)
@@ -233,46 +257,23 @@ def _uniform_distances(
         total_length = arc_lengths[-1]
         uniform_lengths = np.linspace(0, total_length, n_pts)
 
-        # Compute error
         error = np.abs(arc_lengths - uniform_lengths)
         if np.max(error) < tolerance:
             break
 
-        # Update t values
         dis_arr = np.interp(uniform_lengths, arc_lengths, dis_arr)
     return dis_arr
 
 
-@overload
-def fit_catmull_rom(
-    line: LineType,
-    distance: float | None = ...,
-    n_pts: int | None = ...,
-    gaussian_sigma: float | None = ...,
-    return_tangent: Literal[False] = False,
-) -> LineType: ...
-
-
-@overload
-def fit_catmull_rom(
-    line: LineType,
-    distance: float | None = ...,
-    n_pts: int | None = ...,
-    gaussian_sigma: float | None = ...,
-    return_tangent: Literal[True] = True,
-) -> tuple[LineType, FloatArray]: ...
-
-
-def fit_catmull_rom(
-    line: LineType,
+def smooth_linestring(
+    line: LineString,
     distance: float | None = None,
     n_pts: int | None = None,
     gaussian_sigma: float | None = None,
-    return_tangent: bool = False,
     tolerance: float = 1e-6,
     max_iterations: int = 100,
-) -> LineType | tuple[LineType, FloatArray]:
-    """Fit a CatmullRom curve and compute its tangent angle with uniform spacing.
+) -> LineString:
+    """Smooth a LineString using Centripetal Catmull-Rom splines with uniform spacing.
 
     Parameters
     ----------
@@ -285,9 +286,8 @@ def fit_catmull_rom(
         Number of points to be generated, by default None. You must specify
         either ``distance`` or ``n_pts``.
     gaussian_sigma : float, optional
-        Standard deviation for Gaussian kernel, by default None, i.e., no smoothing.
-    return_tangent : bool, optional
-        Whether to return tangent angle, by default False.
+        Standard deviation for Gaussian kernel, by default ``None``,
+        i.e., no smoothing. Note that if specified, ``scipy`` is required.
     tolerance : float, optional
         Tolerance for uniform spacing, by default 1e-6.
     max_iterations : int, optional
@@ -295,24 +295,13 @@ def fit_catmull_rom(
 
     Returns
     -------
-    line : shapely.LineString or numpy.ndarray
+    shapely.LineString or numpy.ndarray
         Fitted CatmullRom curve as either a LineString (Z) or a 2/3D ``numpy`` array.
-    phi : np.ndarray
-        Signed tangent angles in radians, if ``return_tangent`` is True.
     """
-    if not isinstance(line, LineString | np.ndarray | list | tuple):
-        raise TypeError("line must be either shapely.LineString or numpy.ndarray")
+    if not isinstance(line, LineString):
+        raise TypeError("`line` must be a shapely.LineString")
 
-    if isinstance(line, LineString):
-        if line.has_z:
-            vertices = shapely.get_coordinates(line, include_z=True)
-        else:
-            vertices = shapely.get_coordinates(line)
-    else:
-        vertices = np.array(line)
-        if vertices.shape[1] not in (2, 3):
-            raise ValueError("Input `line` must be 2D or 3D")
-
+    vertices = shapely.get_coordinates(line, include_z=line.has_z)
     catmull = CatmullRom(vertices, alpha=0.5, gaussian_sigma=gaussian_sigma)
 
     if distance is not None and n_pts is None:
@@ -322,14 +311,98 @@ def fit_catmull_rom(
         raise ValueError("You must specify either `distance` or `n_pts`")
 
     dis_arr = _uniform_distances(catmull, n_pts, tolerance, max_iterations)
-    points = catmull.evaluate(dis_arr)
+    return LineString(catmull.evaluate(dis_arr))
 
-    line_fitted = LineString(points) if isinstance(line, LineString) else points
-    if not return_tangent:
-        return line_fitted  # pyright: ignore[reportReturnType]
 
-    # Compute tangent angles
-    tangents = catmull.evaluate(dis_arr, n=1)
-    phi = np.arctan2(tangents[:, 1], tangents[:, 0])
+def compute_tangents(
+    vertices: ArrayLike,
+    gaussian_sigma: float | None = None,
+) -> FloatArray:
+    """Compute tangent angles for a line.
 
-    return line_fitted, phi  # pyright: ignore[reportReturnType]
+    Parameters
+    ----------
+    vertices : numpy.ndarray
+        Vertices of a line to compute tangent angles for.
+    gaussian_sigma : float, optional
+        Standard deviation for Gaussian kernel, by default ``None``,
+        i.e., no smoothing. Note that if specified, ``scipy`` is required.
+
+    Returns
+    -------
+    np.ndarray
+        Signed tangent angles in radians.
+    """
+    vertices = np.asarray(vertices)
+    if vertices.shape[1] not in (2, 3):
+        raise TypeError("`vertices` must be 2 or 3D array.")
+
+    catmull = CatmullRom(vertices, alpha=0.5, gaussian_sigma=gaussian_sigma)
+    tangents = catmull.evaluate(catmull.grid, n=1)
+    return np.arctan2(tangents[:, 1], tangents[:, 0])
+
+
+def _poly_smooth(
+    polygon: Polygon,
+    distance: float | None = None,
+    n_pts: int | None = None,
+    gaussian_sigma: float | None = None,
+    tolerance: float = 1e-6,
+    max_iterations: int = 100,
+) -> Polygon:
+    """Smooth a Polygon using Catmull-Rom splines."""
+    exterior = smooth_linestring(
+        polygon.exterior, distance, n_pts, gaussian_sigma, tolerance, max_iterations
+    )
+    interiors = [
+        smooth_linestring(interior, distance, n_pts, gaussian_sigma, tolerance, max_iterations)
+        for interior in polygon.interiors
+    ]
+    return shapely.Polygon(exterior, interiors)
+
+
+def smooth_polygon(
+    polygon: PolygonType,
+    distance: float | None = None,
+    n_pts: int | None = None,
+    gaussian_sigma: float | None = None,
+    tolerance: float = 1e-6,
+    max_iterations: int = 100,
+) -> PolygonType:
+    """Smooth a (Multi)Polygon using Centripetal Catmull-Rom splines with uniform spacing.
+
+    Parameters
+    ----------
+    polygon : shapely.Polygon or shapely.MultiPolygon
+        (Multi)Polygon to be smoothed.
+    distance : float, optional
+        Distance between two consecutive points, by default None. You must
+        specify either ``distance`` or ``n_pts``.
+    n_pts : int, optional
+        Number of points to be generated, by default None. You must specify
+        either ``distance`` or ``n_pts``.
+    gaussian_sigma : float, optional
+        Standard deviation for Gaussian kernel, by default ``None``,
+        i.e., no smoothing. Note that if specified, ``scipy`` is required.
+    tolerance : float, optional
+        Tolerance for uniform spacing, by default 1e-6.
+    max_iterations : int, optional
+        Maximum number of iterations for uniform spacing, by default 100.
+
+    Returns
+    -------
+    shapely.Polygon or shapely.MultiPolygon
+        Smoothed (Multi)Polygon.
+    """
+    if not isinstance(polygon, shapely.Polygon | shapely.MultiPolygon):
+        raise TypeError("`polygon` must be a shapely.Polygon or shapely.MultiPolygon")
+
+    if isinstance(polygon, shapely.Polygon):
+        return _poly_smooth(polygon, distance, n_pts, gaussian_sigma, tolerance, max_iterations)
+
+    return shapely.MultiPolygon(
+        [
+            _poly_smooth(poly, distance, n_pts, gaussian_sigma, tolerance, max_iterations)
+            for poly in polygon.geoms
+        ]
+    )

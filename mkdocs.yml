@@ -106,7 +106,7 @@ nav:
 - Getting Started: README.md
 - Examples:
   - Overview: examples/index.md
-  - Delineate Basins: examples/basin.ipynb
+  - Spline Interpolation: examples/splines.ipynb
 - API Reference: reference.md
 - Release Notes: CHANGELOG.md
 - Contributing: CONTRIBUTING.md
@@ -123,7 +123,6 @@ plugins:
         - https://docs.python.org/3/objects.inv
         - https://numpy.org/doc/stable/objects.inv
         - https://docs.scipy.org/doc/scipy/objects.inv
-        - https://shapely.readthedocs.io/en/stable/objects.inv
         paths: [src]
         options:
           docstring_style: numpy

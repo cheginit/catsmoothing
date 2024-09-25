@@ -33,10 +33,7 @@ classifiers = [
 dynamic = [
   "version",
 ]
-dependencies = ["numpy>=2", "shapely>=2"]
-optional-dependencies.filter = [
-  "scipy",
-]
+dependencies = [ "numpy>=2", "shapely>=2" ]
 optional-dependencies.dev = [
   "ipykernel",
   "ipywidgets",
@@ -51,16 +48,15 @@ optional-dependencies.docs = [
   "mkdocs-material>=9.5.20",
   "mkdocstrings-python",
 ]
-optional-dependencies.lint = [
-  "codespell",
-  "pre-commit",
-  "tomli",
+optional-dependencies.scipy = [
+  "scipy",
 ]
 optional-dependencies.test = [
+  "catsmoothing[scipy]",
   "coverage[toml]",
+  "opt-einsum",
   "pytest-cov",
   "pytest-sugar",
-  "catsmoothing[filter]",
 ]
 urls.Changelog = "https://github.com/cheginit/catsmoothing/blob/main/CHANGELOG.md"
 urls.CI = "https://github.com/cheginit/catsmoothing/actions"
@@ -85,7 +81,6 @@ target-version = "py310"
 line-length = 100
 
 exclude = [
-  ".nox",
   "__pycache__",
 ]
 
@@ -199,11 +194,13 @@ lint.flake8-bugbear.extend-immutable-calls = [
 lint.isort.known-first-party = [
   "catsmoothing",
 ]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
+
 lint.pydocstyle.convention = "numpy"
 
 [tool.codespell]
-skip = "__pycache__,_build,.mypy_cache,.git,./htmlcov,cache,pixi.lock,**.ipynb,**WBT"
-ignore-words-list = "gage,gages,paramss,trough"
+skip = "__pycache__,_build,.mypy_cache,.git,./htmlcov,cache,pixi.lock,**.ipynb"
+ignore-words-list = "gage,gages"
 
 [tool.pytest.ini_options]
 addopts = [
@@ -280,6 +277,8 @@ catsmoothing = { path = ".", editable = true }
 
 [tool.pixi.feature.lint.dependencies]
 pre-commit = "*"
+codespell = "*"
+tomli = "*"
 
 [tool.pixi.feature.typecheck.dependencies]
 pyright = "*"
@@ -291,11 +290,11 @@ python = "~=3.10.0"
 python = "~=3.12.0"
 
 [tool.pixi.environments]
-test310 = { features = [ "test", "filter", "py310" ] }
-test312 = { features = [ "test", "filter", "py312" ] }
+test310 = { features = [ "test", "scipy", "py310" ] }
+test312 = { features = [ "test", "scipy", "py312" ] }
 lint = { features = [ "lint", "py312" ], no-default-feature = true }
-typecheck = { features = [ "typecheck", "filter", "py312" ] }
-dev = { features = [ "dev", "test", "filter", "py312" ] }
+typecheck = { features = [ "typecheck", "scipy", "py312" ] }
+dev = { features = [ "dev", "test", "scipy", "py312" ] }
 docs = { features = [ "docs", "py312" ], no-default-feature = true }
 
 [tool.pixi.feature.test.tasks]

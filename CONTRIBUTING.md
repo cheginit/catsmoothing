@@ -119,9 +119,9 @@ pixi install
 This will install all the necessary dependencies for the project. Once you make changes
 to the project, there are six steps that you need to follow:
 
-1. Add tests for your changes either in `tests/test_pywbt.py` file or
+1. Add tests for your changes either in `tests/test_catsmoothing.py` file or
     create a new file in the `tests` directory with the name `test_<module_name>.py`.
-1. Run `pixi r -e test39` and `pixi r -e test312` to run the tests.
+1. Run `pixi r -e test310` and `pixi r -e test312` to run the tests.
 1. Run `pixi lint` for auto-formatting and to check any linting errors.
 1. Run `pixi r typecheck` to check for type errors.
 1. Document your changes in the `CHANGELOG.md` file. Please make sure to

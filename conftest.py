@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import builtins
 import importlib
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @pytest.fixture(autouse=True)
