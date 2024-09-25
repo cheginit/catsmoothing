@@ -1,0 +1,322 @@
+[build-system]
+build-backend = "hatchling.build"
+
+requires = [
+  "hatch-vcs",
+  "hatchling",
+]
+
+[project]
+name = "catsmoothing"
+description = "Smoothing Shapely geometries using CatMull-Rom spline"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+  { name = "Taher Chegini", email = "cheginit@gmail.com" },
+]
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Topic :: Scientific/Engineering :: Hydrology",
+  "Typing :: Typed",
+]
+dynamic = [
+  "version",
+]
+dependencies = ["numpy>=2", "shapely>=2"]
+optional-dependencies.filter = [
+  "scipy",
+]
+optional-dependencies.dev = [
+  "ipykernel",
+  "ipywidgets",
+  "mapclassify",
+  "matplotlib",
+]
+optional-dependencies.docs = [
+  "black",
+  "mdx-truly-sane-lists>=1.3",
+  "mkdocs>=1.5.3",
+  "mkdocs-jupyter",
+  "mkdocs-material>=9.5.20",
+  "mkdocstrings-python",
+]
+optional-dependencies.lint = [
+  "codespell",
+  "pre-commit",
+  "tomli",
+]
+optional-dependencies.test = [
+  "coverage[toml]",
+  "pytest-cov",
+  "pytest-sugar",
+  "catsmoothing[filter]",
+]
+urls.Changelog = "https://github.com/cheginit/catsmoothing/blob/main/CHANGELOG.md"
+urls.CI = "https://github.com/cheginit/catsmoothing/actions"
+urls.Homepage = "https://github.com/cheginit/catsmoothing"
+urls.Issues = "https://github.com/cheginit/catsmoothing/issues"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "src/catsmoothing",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "*.zip",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+exclude = [
+  ".nox",
+  "__pycache__",
+]
+
+lint.select = [
+  # flake8-bugbear
+  "B",
+  # flake8-comprehensions
+  "C4",
+  # pydocstyle
+  "D",
+  # Error
+  "E",
+  # pyflakes
+  "F",
+  # isort
+  "I",
+  # flake8-gettext
+  "INT",
+  # flake8-implicit-str-concat
+  "ISC",
+  # pep8-naming
+  "N",
+  # compatibility with numpy 2.0
+  "NPY201",
+  # pygrep-hooks
+  "PGH",
+  # misc lints
+  "PIE",
+  # pylint
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  # flake8-pytest-style
+  "PT",
+  # flake8-use-pathlib
+  "PTH",
+  # flake8-pyi
+  "PYI",
+  # flake8-quotes
+  "Q",
+  # Ruff-specific rules
+  "RUF",
+  # bandit
+  "S",
+  # flake8-simplify
+  "SIM",
+  # flake8-debugger
+  "T10",
+  # flake8-print
+  "T20",
+  # type-checking imports
+  "TCH",
+  # tidy imports
+  "TID",
+  # tryceratops
+  "TRY",
+  # pyupgrade
+  "UP",
+  # Warning
+  "W",
+  # flake8-2020
+  "YTT",
+]
+
+lint.ignore = [
+  "D103",
+  "D105",
+  "E501",
+  # conflict with ruff-formatter
+  "ISC001",
+  "PLR0913",
+  "PLR2004",
+  # url schema
+  "S310",
+  "S603",
+  # shell command
+  "S605",
+  "S607",
+  # custom exception
+  "TRY003",
+]
+
+lint.per-file-ignores."catsmoothing/catsmoothing.py" = [
+  # specific type error ignored
+  "PGH003",
+]
+lint.per-file-ignores."tests/*.py" = [
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "D106",
+  "D107",
+  # specific type error ignored
+  "PGH003",
+  # use of "assert"
+  "S101",
+]
+lint.extend-safe-fixes = [
+  # absolute imports
+  "TID252",
+]
+lint.flake8-bugbear.extend-immutable-calls = [
+  "chr",
+  "typer.Argument",
+  "typer.Option",
+]
+lint.isort.known-first-party = [
+  "catsmoothing",
+]
+lint.pydocstyle.convention = "numpy"
+
+[tool.codespell]
+skip = "__pycache__,_build,.mypy_cache,.git,./htmlcov,cache,pixi.lock,**.ipynb,**WBT"
+ignore-words-list = "gage,gages,paramss,trough"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+  "-v",
+  "--cov",
+  "--junitxml=junit.xml",
+  "--durations=5",
+]
+doctest_optionflags = 'NORMALIZE_WHITESPACE IGNORE_EXCEPTION_DETAIL NUMBER'
+testpaths = [
+  "tests",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "if TYPE_CHECKING:",
+  "except zipfile.BadZipFile",
+  "except FileNotFoundError",
+  "except shutil.Error",
+]
+omit = [
+  "**/__init__.py",
+]
+ignore_errors = true
+
+[tool.coverage.paths]
+source = [ "src", "*/site-packages" ]
+omit = [
+  "**/__init__.py",
+]
+
+[tool.coverage.run]
+branch = true
+source = [
+  "catsmoothing",
+]
+omit = [
+  "**/__init__.py",
+]
+
+[tool.pyright]
+exclude = [
+  ".nox/",
+  "**/__pycache__",
+  "**/__init__.py",
+  "tests/",
+  "docs/",
+]
+include = [
+  "src/catsmoothing",
+]
+reportMissingTypeStubs = false
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnknownVariableType = false
+reportUnnecessaryIsInstance = false
+reportUntypedFunctionDecorator = false
+reportAttributeAccessIssue = false
+typeCheckingMode = "strict"
+
+[tool.pixi.feature.docs.tasks]
+build-docs = "mkdocs build --strict"
+docs = "mkdocs serve"
+
+[tool.pixi.project]
+channels = [ "conda-forge" ]
+platforms = [ "linux-64", "osx-64", "osx-arm64", "win-64" ]
+
+[tool.pixi.pypi-dependencies]
+catsmoothing = { path = ".", editable = true }
+
+[tool.pixi.feature.lint.dependencies]
+pre-commit = "*"
+
+[tool.pixi.feature.typecheck.dependencies]
+pyright = "*"
+
+[tool.pixi.feature.py310.dependencies]
+python = "~=3.10.0"
+
+[tool.pixi.feature.py312.dependencies]
+python = "~=3.12.0"
+
+[tool.pixi.environments]
+test310 = { features = [ "test", "filter", "py310" ] }
+test312 = { features = [ "test", "filter", "py312" ] }
+lint = { features = [ "lint", "py312" ], no-default-feature = true }
+typecheck = { features = [ "typecheck", "filter", "py312" ] }
+dev = { features = [ "dev", "test", "filter", "py312" ] }
+docs = { features = [ "docs", "py312" ], no-default-feature = true }
+
+[tool.pixi.feature.test.tasks]
+test = "pytest"
+report = { cmd = [ "coverage", "report" ], depends-on = [ "test" ] }
+html = { cmd = [ "coverage", "html" ], depends-on = [ "test", "report" ] }
+
+[tool.pixi.feature.lint.tasks]
+lint = "pre-commit run --all-files"
+pcupdate = "pre-commit autoupdate"
+spell = "codespell -w"
+
+[tool.pixi.feature.typecheck.tasks]
+typecheck = "pyright"
+
+[tool.fixit]
+formatter = "ufmt"
+disable = [
+  ".rules:NoStringTypeAnnotation",
+]
+
+[tool.refurb]
+python_version = "3.10"
+quiet = true

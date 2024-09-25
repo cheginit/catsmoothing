@@ -1,0 +1,13 @@
+name: catsmoothing
+channels:
+- conda-forge
+- nodefaults
+dependencies:
+- python >=3.11
+
+- catsmoothing
+
+# Deps for examples
+- ipykernel
+- ipywidgets
+- matplotlib-base

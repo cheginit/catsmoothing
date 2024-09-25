@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+    - '**'
+    tags-ignore:
+    - '**'
+  pull_request:
+    branches:
+    - '**'
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: python ${{ matrix.environment }}, ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        environment: [test39, test312]
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: prefix-dev/setup-pixi@v0.8.1
+      with:
+        pixi-version: v0.29.0
+        environments: ${{ matrix.environment }}
+        activate-environment: ${{ matrix.environment }}
+        cache: true
+        cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+    - name: Run pixi
+      run: pixi r test
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+    - name: Upload test results to Codecov
+      if: ${{ !cancelled() }}
+      uses: codecov/test-results-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
