@@ -107,6 +107,15 @@ line_smoothed = cs.smooth_linestring(line, n_pts=30, gaussian_sigma=2)
 
 ![Line Smoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/examples/images/line.png)
 
+We can then compute the tangent angles in radians at each vertex of the smoothed line:
+
+```python
+vertices = shapely.get_coordinates(line_smoothed)
+tangents = cs.compute_tangents(vertices)
+```
+
+![Tangent Angles](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/examples/images/tangents.png)
+
 For more examples, visit the [documentation](https://catsmoothing.readthedocs.io).
 
 ## Contributing

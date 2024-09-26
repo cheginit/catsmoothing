@@ -112,3 +112,7 @@ results
 .copilot-instructions.md
 junit.xml
 .coverage
+
+# asv environments
+asv_benchmarks/.asv
+asv_benchmarks/pkgs

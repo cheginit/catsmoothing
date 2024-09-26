@@ -13,7 +13,7 @@ repos:
     - ufmt
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.6.5
+  rev: v0.6.8
   hooks:
   - id: ruff
     name: Linting with Ruff
@@ -87,7 +87,7 @@ repos:
     args: [--autofix, --indent, '2']
 
 - repo: https://github.com/rhysd/actionlint
-  rev: v1.7.1
+  rev: v1.7.2
   hooks:
   - id: actionlint
     files: .github/workflows/
