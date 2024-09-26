@@ -17,7 +17,7 @@ def parameterized(names, params):
 class TimeSuite:
     def setup(self, *args, **kwargs):
         rng = np.random.default_rng(123)
-        n_pts = 500
+        n_pts = 2000
         x = np.linspace(-3, 2.5, n_pts)
         y = np.exp(-(x**2)) + 0.1 * rng.standard_normal(n_pts)
         self.verts = np.c_[x, y]
