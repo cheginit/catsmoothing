@@ -112,6 +112,7 @@ results
 .copilot-instructions.md
 junit.xml
 .coverage
+pixi.lock
 
 # asv environments
 asv_benchmarks/.asv
