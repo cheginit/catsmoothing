@@ -1,6 +1,6 @@
-\[![CatSmoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/assests/logo.png)\]
+![CatSmoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/refs/heads/main/docs/assets/logo.png)
 
-# CatSmoothing: Python Wrapper for WhiteboxTools
+# CatSmoothing: Smoothing Shapely Geometries with Catmull-Rom Splines
 
 [![PyPI](https://img.shields.io/pypi/v/catsmoothing)](https://pypi.org/project/catsmoothing/)
 [![Conda](https://img.shields.io/conda/vn/conda-forge/catsmoothing)](https://anaconda.org/conda-forge/catsmoothing)
