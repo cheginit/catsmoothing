@@ -1,4 +1,4 @@
-![CatSmoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/refs/heads/main/docs/assets/logo.png)
+![CatSmoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/refs/heads/main/docs/assets/logo_small.png)
 
 # CatSmoothing: Smoothing Shapely Geometries with Catmull-Rom Splines
 
