@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Freeze attributes of `CatmullRom` since they are not supposed to be changed,
+    once the class is instantiated. If needed, a new instance should be created.
+
 ## \[0.1.0\] - 2024-08-31
 
 - Initial release.
