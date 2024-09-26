@@ -115,5 +115,5 @@ junit.xml
 pixi.lock
 
 # asv environments
-asv_benchmarks/.asv
-asv_benchmarks/pkgs
+.asv
+pkgs
