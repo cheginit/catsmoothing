@@ -23,13 +23,13 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        environment: [test39, test312]
+        environment: [test310, test312]
 
     steps:
     - uses: actions/checkout@v4
     - uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        pixi-version: v0.29.0
+        pixi-version: v0.30.0
         environments: ${{ matrix.environment }}
         activate-environment: ${{ matrix.environment }}
         cache: true
