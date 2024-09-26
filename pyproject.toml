@@ -82,6 +82,7 @@ line-length = 100
 
 exclude = [
   "__pycache__",
+  "asv_benchmarks",
 ]
 
 lint.select = [
@@ -296,6 +297,7 @@ docs = { features = [ "docs", "py312" ], no-default-feature = true }
 
 [tool.pixi.feature.test.tasks]
 test = "pytest"
+asv = "asv run"
 report = { cmd = [ "coverage", "report" ], depends-on = [ "test" ] }
 html = { cmd = [ "coverage", "html" ], depends-on = [ "test", "report" ] }
 

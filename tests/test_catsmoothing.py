@@ -8,7 +8,7 @@ import catsmoothing as cs
 from catsmoothing import CatmullRom
 
 
-def assert_close(a: float, b: float, tol: float =1e-3)-> None:
+def assert_close(a: float, b: float, tol: float = 1e-3) -> None:
     assert np.allclose(a, b, atol=tol)
 
 
