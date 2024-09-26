@@ -56,7 +56,8 @@ the class to interpolate with different versions of the Catmull-Rom spline
 from 2D/3D vertices of a line and compute n-th derivatives.
 For smoothing geometries, CatSmoothing uses the centripetal Catmull-Rom spline
 algorithm, i.e., `alpha=0.5`. There are two functions that can be used
-for smoothing geometries: `smooth_line` and `smooth_polygon`.
+for smoothing geometries: `smooth_line` and `smooth_polygon`. There is also
+a function for computing tangent angles (in radians) at each vertex of a line.
 
 ### Basic Usage
 
