@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import functools
+import importlib.util
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import numpy as np
-import shapely
-from shapely import LineString, MultiPolygon, Polygon
+from shapely import LineString, MultiPolygon, Polygon, get_coordinates
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -17,14 +18,14 @@ if TYPE_CHECKING:
     PolygonType = TypeVar("PolygonType", Polygon, MultiPolygon)
 
 
-def einsum(*args: Any) -> FloatArray:
-    try:
-        import opt_einsum  # pyright: ignore[reportMissingImports]
+try:
+    import opt_einsum  # pyright: ignore[reportMissingImports]
 
-        return opt_einsum.contract(*args)
-    except ImportError:
-        return np.einsum(*args, optimize=True)
+    einsum = functools.partial(opt_einsum.contract)
+except ImportError:
+    einsum = functools.partial(np.einsum, optimize=True)
 
+has_scipy = importlib.util.find_spec("scipy") is not None
 
 __all__ = ["CatmullRom", "smooth_linestring", "smooth_polygon", "compute_tangents"]
 
@@ -180,22 +181,25 @@ class CatmullRom:
         self.gaussian_sigma = gaussian_sigma
         if len(self.vertices) < 2:
             raise ValueError("At least two vertices are required")
-        if bc_types == "closed":
+        self.bc_types = bc_types
+        if self.bc_types == "closed":
             self.vertices = np.concatenate([self.vertices, self.vertices[:1]])
 
         if gaussian_sigma is not None:
-            try:
-                from scipy.ndimage import gaussian_filter1d
-            except ImportError as e:
-                raise ImportError("`scipy` is required for Gaussian smoothing") from e
+            if not has_scipy:
+                raise ImportError("`scipy` is required for Gaussian smoothing")
+
+            from scipy.ndimage import gaussian_filter1d
+
             original_start = self.vertices[0].copy()
             original_end = self.vertices[-1].copy()
             self.vertices = gaussian_filter1d(self.vertices, sigma=gaussian_sigma, axis=0)
             self.vertices[0] = original_start
             self.vertices[-1] = original_end
-        self.grid = _check_grid(grid, alpha, self.vertices)
+        self.alpha = alpha
+        self.grid = _check_grid(grid, self.alpha, self.vertices)
 
-        tangents = _check_tangents(self.vertices, self.grid, bc_types)
+        tangents = _check_tangents(self.vertices, self.grid, self.bc_types)
 
         matrix = np.array([[2, -2, 1, 1], [-3, 3, -2, -1], [0, 0, 1, 0], [1, 0, 0, 0]])
         x0 = self.vertices[:-1]
@@ -207,6 +211,7 @@ class CatmullRom:
         dt = t1 - t0
         segment_data = np.stack([x0, x1, dt[:, np.newaxis] * v0, dt[:, np.newaxis] * v1], axis=-1)
         self.segments = einsum("ij,klj->kil", matrix, segment_data)
+        self._is_frozen = True
 
     def evaluate(self, distances: list[tuple[float, float]] | FloatArray, n: int = 0) -> FloatArray:
         """Get value (or n-th derivative) at given parameter value(s).
@@ -243,6 +248,22 @@ class CatmullRom:
             coefficients,
         )
         return values
+
+    def __setattr__(self, key: str, value: Any):
+        """Prevent modification of attributes after initialization."""
+        if getattr(self, "_is_frozen", False):
+            raise AttributeError(
+                f"Cannot modify attribute '{key}'. The object is frozen. Reinstantiate the class."
+            )
+        object.__setattr__(self, key, value)
+
+    def __delattr__(self, item: str):
+        """Prevent modification of attributes after initialization."""
+        if getattr(self, "_is_frozen", False):
+            raise AttributeError(
+                f"Cannot delete attribute '{item}'. The object is frozen. Reinstantiate the class."
+            )
+        object.__delattr__(self, item)
 
 
 def _uniform_distances(
@@ -301,7 +322,7 @@ def smooth_linestring(
     if not isinstance(line, LineString):
         raise TypeError("`line` must be a shapely.LineString")
 
-    vertices = shapely.get_coordinates(line, include_z=line.has_z)
+    vertices = get_coordinates(line, include_z=line.has_z)
     catmull = CatmullRom(vertices, alpha=0.5, gaussian_sigma=gaussian_sigma)
 
     if distance is not None and n_pts is None:
@@ -358,7 +379,7 @@ def _poly_smooth(
         smooth_linestring(interior, distance, n_pts, gaussian_sigma, tolerance, max_iterations)
         for interior in polygon.interiors
     ]
-    return shapely.Polygon(exterior, interiors)
+    return Polygon(exterior, interiors)
 
 
 def smooth_polygon(
@@ -394,13 +415,13 @@ def smooth_polygon(
     shapely.Polygon or shapely.MultiPolygon
         Smoothed (Multi)Polygon.
     """
-    if not isinstance(polygon, shapely.Polygon | shapely.MultiPolygon):
+    if not isinstance(polygon, Polygon | MultiPolygon):
         raise TypeError("`polygon` must be a shapely.Polygon or shapely.MultiPolygon")
 
-    if isinstance(polygon, shapely.Polygon):
+    if isinstance(polygon, Polygon):
         return _poly_smooth(polygon, distance, n_pts, gaussian_sigma, tolerance, max_iterations)
 
-    return shapely.MultiPolygon(
+    return MultiPolygon(
         [
             _poly_smooth(poly, distance, n_pts, gaussian_sigma, tolerance, max_iterations)
             for poly in polygon.geoms
