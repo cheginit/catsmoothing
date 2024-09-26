@@ -1988,9 +1988,9 @@ packages:
   timestamp: 1725019034582
 - kind: pypi
   name: catsmoothing
-  version: 0.1.dev5+gb932097.d20240926
+  version: 0.1.dev6+g1c78c0d.d20240926
   path: .
-  sha256: ff08d32f5b4c36245220dab76c2a65c4f84e30e711e5dfcf59297cf86195c997
+  sha256: db2938f5686aba361e9945ee39b407344afa48e5d5d7a797f72c954316f84efa
   requires_dist:
   - numpy>=2
   - shapely>=2
@@ -2015,9 +2015,9 @@ packages:
   editable: true
 - kind: pypi
   name: catsmoothing
-  version: 0.1.dev5+gb932097.d20240926
+  version: 0.1.dev6+g1c78c0d.d20240926
   path: .
-  sha256: ff08d32f5b4c36245220dab76c2a65c4f84e30e711e5dfcf59297cf86195c997
+  sha256: db2938f5686aba361e9945ee39b407344afa48e5d5d7a797f72c954316f84efa
   requires_dist:
   - numpy>=2
   - shapely>=2

@@ -13,7 +13,7 @@ def assert_close(a: float, b: float, tol: float = 1e-3) -> None:
 
 
 @pytest.mark.parametrize(
-    "alpha,expected",
+    ("alpha", "expected"),
     [
         (0, [1.5, 0.6099]),
         (0.5, [1.4570, 0.5289]),

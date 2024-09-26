@@ -1,7 +1,3 @@
-# Write the benchmarking functions here.
-# See "Writing benchmarks" in the asv docs for more information.
-from __future__ import annotations
-
 import numpy as np
 import shapely
 
@@ -20,13 +16,14 @@ def parameterized(names, params):
 
 class TimeSuite:
     def setup(self, *args, **kwargs):
-        self.verts = [(0, 0), (0, 0.5), (1.5, 1.5), (1.6, 1.5), (3, 0.2), (3, 0)]
-        self.distances = np.linspace(0, 8, 100000)
-        self.poly = shapely.Polygon(self.verts)
         rng = np.random.default_rng(123)
-        x = np.linspace(-3, 2.5, 50)
-        y = np.exp(-(x**2)) + 0.1 * rng.standard_normal(50)
-        self.line = shapely.LineString(np.c_[x, y])
+        n_pts = 500
+        x = np.linspace(-3, 2.5, n_pts)
+        y = np.exp(-(x**2)) + 0.1 * rng.standard_normal(n_pts)
+        self.verts = np.c_[x, y]
+        self.distances = np.linspace(0, 8, 10 * n_pts)
+        self.poly = shapely.Polygon(self.verts)
+        self.line = shapely.LineString(self.verts)
 
     @parameterized(["alpha", "order"], [(0, 0.5, 1), (1, 2, 3)])
     def time_eval(self, alpha, order):

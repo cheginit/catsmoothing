@@ -1,11 +1,16 @@
 {
-    "version": 1,
-    "project": "catsmoothing",
-    "project_url": "https://catsmoothing.readthedocs.io",
-    "repo": ".",
-    "branches": ["main"],
-    "environment_type": "existing",
-    "env_dir": ".asv/env",
-    "results_dir": ".asv/results",
-    "html_dir": ".asv/html"
+  "version": 1,
+  "project": "catsmoothing",
+  "project_url": "https://catsmoothing.readthedocs.io",
+  "repo": ".",
+  "branches": [
+    "main"
+  ],
+  "dvcs": "git",
+  "environment_type": "existing",
+  "show_commit_url": "https://github.com/cheginit/catsmoothing/commit/",
+  "benchmark_dir": "benchmarks",
+  "env_dir": ".asv/env",
+  "results_dir": ".asv/results",
+  "html_dir": ".asv/html"
 }
