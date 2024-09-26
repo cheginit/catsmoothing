@@ -27,7 +27,6 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: GIS",
-  "Topic :: Scientific/Engineering :: Hydrology",
   "Typing :: Typed",
 ]
 dynamic = [
@@ -35,6 +34,7 @@ dynamic = [
 ]
 dependencies = [ "numpy>=2", "shapely>=2" ]
 optional-dependencies.dev = [
+  "asv",
   "ipykernel",
   "ipywidgets",
   "mapclassify",
@@ -218,9 +218,6 @@ testpaths = [
 [tool.coverage.report]
 exclude_lines = [
   "if TYPE_CHECKING:",
-  "except zipfile.BadZipFile",
-  "except FileNotFoundError",
-  "except shutil.Error",
 ]
 omit = [
   "**/__init__.py",
