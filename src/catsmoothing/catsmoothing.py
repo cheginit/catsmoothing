@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     FloatArray = NDArray[np.float64]
-    BCType = Literal["natural", "closed"]
+    BCType = Literal["natural", "closed", "clamped"]
     ArrayLike = list[tuple[float, float]] | list[tuple[float, float, float]] | FloatArray
     PolygonType = TypeVar("PolygonType", Polygon, MultiPolygon)
 
@@ -62,11 +62,11 @@ def _check_bc_types(
         vertices = np.concatenate([vertices, vertices[1:2]])
         grid = np.concatenate([grid, [grid[-1] + grid[1] - grid[0]]])
         start = end = bc_types
-    elif bc_types == "natural":
+    elif bc_types in {"natural", "clamped"}:
         start = end = bc_types
     else:
         raise TypeError(
-            "bc_types must be a string (closed or natural) or a pair of floats (start, end)"
+            "bc_types must be one of 'closed', 'natural', 'clamped' or a pair of floats (start, end)"
         )
 
     v_triples = zip(vertices, vertices[1:], vertices[2:], strict=False)
@@ -88,7 +88,7 @@ def _calculate_tangent(
 
 
 def _end_tangent(
-    bc_type: Literal["natural"] | float,
+    bc_type: BCType | float,
     vertices: FloatArray,
     times: FloatArray,
     other_tangent: float,
@@ -99,7 +99,13 @@ def _end_tangent(
         t0, t1 = times
         delta = t1 - t0
         return 3 * (x1 - x0) / (2 * delta) - other_tangent * 0.5
-    return bc_type
+    elif bc_type == "clamped":
+        x0, x1 = vertices
+        t0, t1 = times
+        delta = t1 - t0
+        return (x1 - x0) / delta
+    # If bc_type is a float
+    return bc_type  # pyright: ignore[reportReturnType]
 
 
 def _check_tangents(
@@ -107,14 +113,14 @@ def _check_tangents(
 ) -> FloatArray:
     """Check tangents and return them."""
     start, end, v_triples, g_triples = _check_bc_types(bc_types, vertices, grid)
-    # Compute tangents and then duplicate them since incoming and outgoing are the same
+    # Compute tangents for internal points
     tangents = [
         tangent
         for p, t in zip(v_triples, g_triples, strict=False)
         for tangent in [_calculate_tangent(p, t)] * 2
     ]
     if len(tangents) < 2:
-        # straight line
+        # Straight line case
         if not (len(vertices) == len(grid) == 2):
             raise ValueError("Exactly 2 vertices are needed for a straight line")
         vertices = np.asarray(vertices)
@@ -123,8 +129,11 @@ def _check_tangents(
         # Move last (outgoing) tangent to the beginning
         tangents = tangents[-1:] + tangents[:-1]
     else:
-        tangents.insert(0, _end_tangent(start, vertices[:2], grid[:2], tangents[0]))  # pyright: ignore[reportArgumentType]
-        tangents.append(_end_tangent(end, vertices[-2:], grid[-2:], tangents[-1]))  # pyright: ignore[reportArgumentType]
+        # Calculate endpoint tangents based on bc_type
+        start_tangent = _end_tangent(start, vertices[:2], grid[:2], tangents[0])
+        end_tangent = _end_tangent(end, vertices[-2:], grid[-2:], tangents[-1])
+        tangents.insert(0, start_tangent)
+        tangents.append(end_tangent)
 
     if len(tangents) != 2 * (len(vertices) - 1):
         raise ValueError("Exactly 2 tangents per segment are needed")
@@ -132,7 +141,7 @@ def _check_tangents(
 
 
 class CatmullRom:
-    """Catmull-Rom spline based on Catmull and Rom 1974 [1].
+    """Catmull-Rom spline with additional ``"clamped"`` boundary condition.
 
     Parameters
     ----------
@@ -143,9 +152,11 @@ class CatmullRom:
         If not specified, a uniform grid is used (0, 1, 2, 3, ...).
     alpha : float, optional
         Catmull-Rom parameter. If specified, ``grid`` is ignored.
-    bc_types : {'closed', 'natural', (start_tangent, end_tangent)}, optional
-        Start/end conditions. If 'closed', the first vertex is re-used as
+    bc_types : {"closed", "natural", "clamped", (start_tangent, end_tangent)}, optional
+        Start/end conditions. If ``"closed"``, the first vertex is re-used as
         last vertex and an additional ``grid`` value has to be specified.
+        If ``"clamped"``, endpoint tangents are set to ensure the spline passes
+        through the start and end points without deviation.
     gaussian_sigma : float, optional
         Standard deviation for Gaussian kernel. If specified, applies Gaussian
         smoothing to the vertices before fitting the curve. Default is None (no smoothing).
@@ -153,14 +164,14 @@ class CatmullRom:
     Examples
     --------
     >>> verts = [(0., 0.), (1., 1.), (2., 0.), (3., 1.)]
-    >>> s = CatmullRom(verts, alpha=0.5)
+    >>> s = CatmullRom(verts, alpha=0.5, bc_types=``"clamped"``)
     >>> grid = np.linspace(0, s.grid[-1], 5)
     >>> s.evaluate(grid)
-    array([[0. , 0. ],
-           [0.78226261, 0.93404706],
-           [1.57197579, 0.39074521],
-           [2.3194772 , 0.20959155],
-           [3. , 1.5 ]])
+    array([[0.        , 0.        ],
+           [0.78125   , 0.9375    ],
+           [1.5625    , 0.375     ],
+           [2.34375   , 0.21875   ],
+           [3.        , 1.        ]])
 
     References
     ----------
@@ -183,6 +194,8 @@ class CatmullRom:
             raise ValueError("At least two vertices are required")
         self.bc_types = bc_types
         if self.bc_types == "closed":
+            if np.allclose(vertices[0], vertices[-1]):
+                self.vertices = self.vertices[:-1].copy()
             self.vertices = np.concatenate([self.vertices, self.vertices[:1]])
 
         if gaussian_sigma is not None:
@@ -213,7 +226,7 @@ class CatmullRom:
         self.segments = einsum("ij,klj->kil", matrix, segment_data)
         self._is_frozen = True
 
-    def evaluate(self, distances: list[tuple[float, float]] | FloatArray, n: int = 0) -> FloatArray:
+    def evaluate(self, distances: list[float] | FloatArray, n: int = 0) -> FloatArray:
         """Get value (or n-th derivative) at given parameter value(s).
 
         Parameters
@@ -293,6 +306,7 @@ def smooth_linestring(
     gaussian_sigma: float | None = None,
     tolerance: float = 1e-6,
     max_iterations: int = 100,
+    bc_types: BCType | tuple[float, float] = "clamped",
 ) -> LineString:
     """Smooth a LineString using Centripetal Catmull-Rom splines with uniform spacing.
 
@@ -313,6 +327,11 @@ def smooth_linestring(
         Tolerance for uniform spacing, by default 1e-6.
     max_iterations : int, optional
         Maximum number of iterations for uniform spacing, by default 100.
+    bc_types : {"closed", "natural", "clamped", (start_tangent, end_tangent)}, optional
+        Start/end conditions, defaults to ``clamped``. If ``"closed"``, the first
+        vertex is re-used as last vertex and an additional ``grid`` value has
+        to be specified. If ``"clamped"``, endpoint tangents are set to ensure the
+        spline passes through the start and end points without deviation.
 
     Returns
     -------
@@ -323,7 +342,7 @@ def smooth_linestring(
         raise TypeError("`line` must be a shapely.LineString")
 
     vertices = get_coordinates(line, include_z=line.has_z)
-    catmull = CatmullRom(vertices, alpha=0.5, gaussian_sigma=gaussian_sigma)
+    catmull = CatmullRom(vertices, alpha=0.5, gaussian_sigma=gaussian_sigma, bc_types=bc_types)
 
     if distance is not None and n_pts is None:
         length = np.linalg.norm(np.diff(vertices, axis=0), axis=1).sum()
@@ -373,10 +392,12 @@ def _poly_smooth(
 ) -> Polygon:
     """Smooth a Polygon using Catmull-Rom splines."""
     exterior = smooth_linestring(
-        polygon.exterior, distance, n_pts, gaussian_sigma, tolerance, max_iterations
+        polygon.exterior, distance, n_pts, gaussian_sigma, tolerance, max_iterations, "closed"
     )
     interiors = [
-        smooth_linestring(interior, distance, n_pts, gaussian_sigma, tolerance, max_iterations)
+        smooth_linestring(
+            interior, distance, n_pts, gaussian_sigma, tolerance, max_iterations, "closed"
+        )
         for interior in polygon.interiors
     ]
     return Polygon(exterior, interiors)
