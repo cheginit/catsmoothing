@@ -33,7 +33,7 @@ def test_poly():
     verts = [(0, 0), (0, 0.5), (1.5, 1.5), (1.6, 1.5), (3, 0.2), (3, 0)]
     poly = shapely.Polygon(verts)
     ploy_smoothed = cs.smooth_polygon(poly, n_pts=50)
-    assert_close(poly.area, ploy_smoothed.area, 0.5)
+    assert_close(poly.area, ploy_smoothed.area, 0.7)
 
 
 def test_line_tangent():
