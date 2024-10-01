@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a new boundary condition for the `CatmullRom` class called `'clamped'`,
+    which allows anchoring the first and last points of the curve to the first
+    and last control points. This is particularly useful for smoothing
+    `MultiLineString` geometries where the first and last points of each
+    line segment must remain connected to the previous and next line segment.
+
 ### Changed
 
 - Freeze attributes of `CatmullRom` since they are not supposed to be changed,
