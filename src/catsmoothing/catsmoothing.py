@@ -141,7 +141,13 @@ def _check_tangents(
 
 
 class CatmullRom:
-    """Catmull-Rom spline with additional ``"clamped"`` boundary condition.
+    """Catmull-Rom spline generator.
+
+    Notes
+    -----
+    The methodology is based on the
+    [splines](https://github.com/AudioSceneDescriptionFormat/splines)
+    library.
 
     Parameters
     ----------
