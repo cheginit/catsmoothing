@@ -2,5 +2,5 @@
 
 - \[ \] Closes #xxxx
 - \[ \] Passes `pixi r lint` and `pixi r typecheck`.
-- \[ \] Tests added and `pixi r -e test39 report` and `pixi r -e test312 report` passes.
+- \[ \] Tests added and `pixi r -e test39 report` and `pixi r -e test313 report` passes.
 - \[ \] Changes and the contributor name are documented in `CHANGELOG.md`.
