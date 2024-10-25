@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+## \[0.1.0\] - 2024-09-25
+
+### Added
+
 - Add a new boundary condition for the `CatmullRom` class called `'clamped'`,
     which allows anchoring the first and last points of the curve to the first
     and last control points. This is particularly useful for smoothing
