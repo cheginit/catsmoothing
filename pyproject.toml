@@ -292,7 +292,7 @@ python = "~=3.13.0"
 
 [tool.pixi.environments]
 dev = { features = [ "dev", "test", "py313" ] }
-test39 = { features = [ "test", "py310" ] }
+test310 = { features = [ "test", "py310" ] }
 test313 = { features = [ "test", "py313" ] }
 typecheck = { features = [ "typecheck", "py313" ] }
 lint = { features = [ "lint", "py313" ], no-default-feature = true }
