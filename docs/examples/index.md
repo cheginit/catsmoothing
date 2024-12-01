@@ -5,7 +5,7 @@ dependencies. You can install all the dependencies using `micromamba`
 (or `conda` or `mamba`):
 
 ```bash
-micormamba create -n catsmoothing scipy opt-einsum ipykernel ipywidgets matplotlib-base
+micormamba create -n catsmoothing ipykernel ipywidgets matplotlib-base
 ```
 
 This will create a new environment called `smoothing` with all the required packages.
@@ -20,7 +20,7 @@ Alternatively, you can install the dependencies using `pip`:
 ```bash
 python -m venv ./venv
 source ./venv/bin/activate
-pip install catsmoothing scipy opt-einsum ipykernel ipywidgets matplotlib
+pip install catsmoothing ipykernel ipywidgets matplotlib
 ```
 
 <div class="grid cards" markdown>

@@ -122,7 +122,7 @@ plugins:
         - https://docs.python.org/3/objects.inv
         - https://numpy.org/doc/stable/objects.inv
         - https://docs.scipy.org/doc/scipy/objects.inv
-        paths: [src]
+        paths: [catsmoothing]
         options:
           docstring_style: numpy
           inherited_members: true

@@ -1,19 +1,14 @@
 [build-system]
-build-backend = "hatchling.build"
+build-backend = "maturin"
 
-requires = [
-  "hatch-vcs",
-  "hatchling",
-]
+requires = [ "maturin>=1.4,<2" ]
 
 [project]
 name = "catsmoothing"
-description = "Smoothing Shapely geometries using CatMull-Rom spline"
+description = "Smoothing Shapely geometries using Catmull-Rom spline"
 readme = "README.md"
 license = { text = "MIT" }
-authors = [
-  { name = "Taher Chegini", email = "cheginit@gmail.com" },
-]
+authors = [ { name = "Taher Chegini", email = "cheginit@gmail.com" } ]
 requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -26,15 +21,20 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Rust",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: GIS",
   "Typing :: Typed",
 ]
-dynamic = [
-  "version",
-]
+dynamic = [ "version" ]
 dependencies = [ "numpy>=2", "shapely>=2" ]
-optional-dependencies.docs = [
+urls.Changelog = "https://github.com/cheginit/catsmoothing/blob/main/CHANGELOG.md"
+urls.CI = "https://github.com/cheginit/catsmoothing/actions"
+urls.Homepage = "https://github.com/cheginit/catsmoothing"
+urls.Issues = "https://github.com/cheginit/catsmoothing/issues"
+
+[dependency-groups]
+docs = [
   "black",
   "mdx-truly-sane-lists>=1.3",
   "mkdocs>=1.5.3",
@@ -42,36 +42,18 @@ optional-dependencies.docs = [
   "mkdocs-material>=9.5.20",
   "mkdocstrings-python",
 ]
-optional-dependencies.scipy = [
-  "scipy",
-]
 
-urls.Changelog = "https://github.com/cheginit/catsmoothing/blob/main/CHANGELOG.md"
-urls.CI = "https://github.com/cheginit/catsmoothing/actions"
-urls.Homepage = "https://github.com/cheginit/catsmoothing"
-urls.Issues = "https://github.com/cheginit/catsmoothing/issues"
-
-[tool.hatch.version]
-source = "vcs"
-
-[tool.hatch.build.targets.wheel]
-packages = [
-  "src/catsmoothing",
-]
-
-[tool.hatch.build.targets.sdist]
-exclude = [
-  "*.zip",
-]
+[tool.maturin]
+# "extension-module" tells pyo3 we want to build an
+# extension module (skips linking against libpython.so)
+features = [ "pyo3/extension-module", "python" ]
+module-name = "catsmoothing._catsmoothing"
 
 [tool.ruff]
 target-version = "py310"
 line-length = 100
 
-exclude = [
-  "__pycache__",
-  "benchmarks",
-]
+exclude = [ "__pycache__", "benchmarks" ]
 
 lint.select = [
   # flake8-bugbear
@@ -94,6 +76,8 @@ lint.select = [
   "N",
   # compatibility with numpy 2.0
   "NPY201",
+  # Perflint
+  "PERF",
   # pygrep-hooks
   "PGH",
   # misc lints
@@ -122,7 +106,7 @@ lint.select = [
   # flake8-print
   "T20",
   # type-checking imports
-  "TCH",
+  "TC",
   # tidy imports
   "TID",
   # tryceratops
@@ -175,14 +159,7 @@ lint.extend-safe-fixes = [
   # absolute imports
   "TID252",
 ]
-lint.flake8-bugbear.extend-immutable-calls = [
-  "chr",
-  "typer.Argument",
-  "typer.Option",
-]
-lint.isort.known-first-party = [
-  "catsmoothing",
-]
+lint.isort.known-first-party = [ "catsmoothing" ]
 lint.isort.required-imports = [ "from __future__ import annotations" ]
 
 lint.pydocstyle.convention = "numpy"
@@ -195,50 +172,31 @@ ignore-words-list = "gage,gages"
 addopts = [
   "--import-mode=importlib",
   "-v",
-  "--cov",
-  "--junitxml=junit.xml",
   "--durations=5",
 ]
 doctest_optionflags = 'NORMALIZE_WHITESPACE IGNORE_EXCEPTION_DETAIL NUMBER'
-testpaths = [
-  "tests",
+testpaths = [ "catsmoothing/tests" ]
+markers = [
+  "benchmark: Tests that are benchmarks",
 ]
 
 [tool.coverage.report]
-exclude_lines = [
-  "if TYPE_CHECKING:",
-]
-omit = [
-  "**/__init__.py",
-]
+exclude_lines = [ "if TYPE_CHECKING:" ]
+omit = [ "**/__init__.py" ]
 ignore_errors = true
 
 [tool.coverage.paths]
-source = [ "src", "*/site-packages" ]
-omit = [
-  "**/__init__.py",
-]
+source = [ "catsmoothing", "*/site-packages" ]
+omit = [ "**/__init__.py" ]
 
 [tool.coverage.run]
 branch = true
-source = [
-  "catsmoothing",
-]
-omit = [
-  "**/__init__.py",
-]
+source = [ "catsmoothing" ]
+omit = [ "**/__init__.py" ]
 
 [tool.pyright]
-exclude = [
-  ".nox/",
-  "**/__pycache__",
-  "**/__init__.py",
-  "tests/",
-  "docs/",
-]
-include = [
-  "src/catsmoothing",
-]
+exclude = [ "**/__pycache__", "**/__init__.py", "tests/", "docs/" ]
+include = [ "catsmoothing" ]
 reportMissingTypeStubs = false
 reportUnknownArgumentType = false
 reportUnknownLambdaType = false
@@ -265,14 +223,14 @@ catsmoothing = { path = ".", editable = true }
 coverage = "*"
 pytest-cov = "*"
 pytest-sugar = "*"
-scipy = "*"
-opt-einsum = "*"
 
 [tool.pixi.feature.dev.dependencies]
+maturin = "*"
+numpy = ">=2"
+shapely = ">=2"
 asv = "*"
 ipykernel = "*"
 ipywidgets = "*"
-mapclassify = "*"
 matplotlib-base = "*"
 pytest = "*"
 
@@ -291,15 +249,15 @@ tomli = "*"
 python = "~=3.13.0"
 
 [tool.pixi.environments]
-dev = { features = [ "dev", "test", "py313" ] }
+dev = { features = [ "dev", "py313" ] }
 test310 = { features = [ "test", "py310" ] }
 test313 = { features = [ "test", "py313" ] }
 typecheck = { features = [ "typecheck", "py313" ] }
 lint = { features = [ "lint", "py313" ], no-default-feature = true }
-docs = { features = [ "docs", "py313" ], no-default-feature = true }
+docs = { features = [ "docs", "py313" ] }
 
 [tool.pixi.feature.test.tasks]
-test = "pytest"
+test = "pytest --cov --junitxml=junit.xml"
 report = { cmd = [ "coverage", "report" ], depends-on = [ "test" ] }
 html = { cmd = [ "coverage", "html" ], depends-on = [ "test", "report" ] }
 
@@ -310,13 +268,3 @@ spell = "codespell -w"
 
 [tool.pixi.feature.typecheck.tasks]
 typecheck = "pyright"
-
-[tool.fixit]
-formatter = "ufmt"
-disable = [
-  ".rules:NoStringTypeAnnotation",
-]
-
-[tool.refurb]
-python_version = "3.10"
-quiet = true
