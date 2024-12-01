@@ -3,7 +3,7 @@ name: CodSpeed
 on:
   push:
     branches:
-      - "main"
+    - main
   pull_request:
   # `workflow_dispatch` allows CodSpeed to trigger backtest
   # performance analysis in order to generate initial data.
@@ -14,16 +14,14 @@ jobs:
     name: Run benchmarks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install dependencies
-        run: pip install . maturin pytest pytest-codspeed
-
-      - name: Run benchmarks
-        uses: CodSpeedHQ/action@v3
-        with:
-          token: ${{ secrets.CODSPEED_TOKEN }}
-          run: pytest catsmoothing/tests --codspeed
+    - uses: actions/checkout@v4
+    - uses: prefix-dev/setup-pixi@v0.8.1
+      with:
+        pixi-version: v0.38.0
+        environments: benchmark
+        activate-environment: benchmark
+    - name: Run benchmarks
+      uses: CodSpeedHQ/action@v3
+      with:
+        token: ${{ secrets.CODSPEED_TOKEN }}
+        run: pixi r benchmark
