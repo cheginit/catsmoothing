@@ -251,7 +251,9 @@ def smooth_linestrings(
         return (
             shapely.LineString(smoothed[0]) if geom_type == 1 else shapely.LinearRing(smoothed[0])
         )
-    return shapely.linestrings(smoothed) if geom_type == 1 else shapely.linearrings(smoothed)
+    if geom_type == 1:
+        return shapely.linestrings(smoothed)  # pyright: ignore[reportReturnType]
+    return shapely.linearrings(smoothed)  # pyright: ignore[reportReturnType]
 
 
 @overload
