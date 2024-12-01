@@ -10,11 +10,12 @@
 [![codecov](https://codecov.io/gh/cheginit/catsmoothing/graph/badge.svg?token=U2638J9WKM)](https://codecov.io/gh/cheginit/catsmoothing)
 [![CI](https://github.com/cheginit/catsmoothing/actions/workflows/test.yml/badge.svg)](https://github.com/cheginit/catsmoothing/actions/workflows/test.yml)
 [![Documentation Status](https://readthedocs.org/projects/catsmoothing/badge/?version=latest)](https://catsmoothing.readthedocs.io/latest/?badge=latest)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ## Overview
 
 **CatSmoothing** smooths [Shapely](https://shapely.readthedocs.io)
-geometries, `LineString` and `(Multi)Polygon`, using the Catmull-Rom spline algorithm.
+geometries, `LineString` and `(Multi)Polygon`, using the Catmull-Rom spline algorithm and can compute tangent angles at each vertex of a list of lines.
 The implementation is based on the
 [Splines](https://github.com/AudioSceneDescriptionFormat/splines)
 library, but offers performance improvements and additional features.
@@ -23,14 +24,12 @@ You can try CatSmoothing directly in your browser by clicking the Binder badge a
 
 ## Key Features
 
+- Written in Rust for performance and runs in parallel using Rayon
 - Creating splines from 2D/3D vertices of a line that allows computing n-th derivatives
 - Smoothing geometries with Centripetal Catmull-Rom splines with **uniform spacing**
     (spacing is determined iteratively based on the arc length of the input geometry)
 - Computing tangent vectors at each vertex of a line
 - Optional Gaussian filtering to reduce noise in input geometries before smoothing
-    (requires `scipy` to be installed)
-- Automatically using `opt-einsum` for efficient computation of the spline coefficients,
-    if it is installed
 
 ## Installation
 
@@ -56,7 +55,7 @@ the class to interpolate with different versions of the Catmull-Rom spline
 from 2D/3D vertices of a line and compute n-th derivatives.
 For smoothing geometries, CatSmoothing uses the centripetal Catmull-Rom spline
 algorithm, i.e., `alpha=0.5`. There are two functions that can be used
-for smoothing geometries: `smooth_line` and `smooth_polygon`. There is also
+for smoothing geometries: `smooth_linestrings` and `smooth_polygon`. There is also
 a function for computing tangent angles (in radians) at each vertex of a line.
 
 ### Basic Usage
@@ -69,8 +68,9 @@ from catsmoothing import CatmullRom
 
 verts = [(0, 0), (0, 0.5), (1.5, 1.5), (1.6, 1.5), (3, 0.2), (3, 0)]
 n_pts = 15
+smoothed = {}
 for alpha in (0, 0.5, 1):
-    s = CatmullRom(verts, alpha=alpha, bc_types="closed")
+    s = CatmullRom(verts, alpha=alpha, bc_type="closed")
     dots = int((s.grid[-1] - s.grid[0]) * n_pts) + 1
     distances = s.grid[0] + np.arange(dots) / n_pts
     smoothed[alpha] = s.evaluate(distances)
@@ -103,7 +103,7 @@ rng = np.random.default_rng(123)
 x = np.linspace(-3, 2.5, 50)
 y = np.exp(-(x**2)) + 0.1 * rng.standard_normal(50)
 line = LineString(np.c_[x, y])
-line_smoothed = cs.smooth_linestring(line, n_pts=30, gaussian_sigma=2)
+line_smoothed = cs.smooth_linestrings(line, n_pts=30, gaussian_sigmas=2)
 ```
 
 ![Line Smoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/examples/images/line.png)
@@ -111,8 +111,7 @@ line_smoothed = cs.smooth_linestring(line, n_pts=30, gaussian_sigma=2)
 We can then compute the tangent angles in radians at each vertex of the smoothed line:
 
 ```python
-vertices = shapely.get_coordinates(line_smoothed)
-tangents = cs.compute_tangents(vertices)
+tangents = cs.linestrings_tangent_angles(line_smoothed)
 ```
 
 ![Tangent Angles](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/examples/images/tangents.png)
