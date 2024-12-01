@@ -76,16 +76,14 @@ class CatmullRom:
         bc_type: BCType = "natural",
         gaussian_sigma: float | None = None,
     ) -> None:
-        verticies = _tolist(vertices, "f8")
+        vertices = _tolist(vertices, "f8")
         grid = _tolist(grid, "f8") if grid is not None else None
         self.alpha = float(alpha) if alpha is not None else None
         self.gaussian_sigma = float(gaussian_sigma) if gaussian_sigma is not None else None
         self.bc_type = bc_type
         if self.bc_type not in ("natural", "closed", "clamped"):
             raise ValueError("`bc_types` must be 'natural', 'closed', 'clamped'.")
-        self._spline = _CatmullRomRS(
-            verticies, grid, self.alpha, self.bc_type, self.gaussian_sigma
-        )
+        self._spline = _CatmullRomRS(vertices, grid, self.alpha, self.bc_type, self.gaussian_sigma)
         self.grid = np.asarray(self._spline.grid)
         self._is_frozen = True
 
@@ -109,7 +107,9 @@ class CatmullRom:
         results = self._spline.evaluate(_tolist(np.atleast_1d(distances), "f8"), int(n))
         return np.asarray(results)
 
-    def uniform_distances(self, n_pts: int, tolerance: float = 1e-6, max_iterations: int = 100) -> FloatArray:
+    def uniform_distances(
+        self, n_pts: int, tolerance: float = 1e-6, max_iterations: int = 100
+    ) -> FloatArray:
         """Get uniformly spaced parameter values.
 
         Parameters
@@ -172,25 +172,25 @@ def smooth_linestrings(  # pyright: ignore[reportOverlappingOverload]
 
 @overload
 def smooth_linestrings(
-lines: list[LinearRing],
-distances: list[float] | None = None,
-n_pts: list[int] | None = None,
-gaussian_sigmas: list[float] | None = None,
-bc_types: list[BCType] | None = None,
-tolerance: float = 1e-6,
-max_iterations: int = 100,
+    lines: list[LinearRing],
+    distances: list[float] | None = None,
+    n_pts: list[int] | None = None,
+    gaussian_sigmas: list[float] | None = None,
+    bc_types: list[BCType] | None = None,
+    tolerance: float = 1e-6,
+    max_iterations: int = 100,
 ) -> list[LinearRing]: ...
 
 
 @overload
 def smooth_linestrings(
-lines: list[LineString],
-distances: list[float] | None = None,
-n_pts: list[int] | None = None,
-gaussian_sigmas: list[float] | None = None,
-bc_types: list[BCType] | None = None,
-tolerance: float = 1e-6,
-max_iterations: int = 100,
+    lines: list[LineString],
+    distances: list[float] | None = None,
+    n_pts: list[int] | None = None,
+    gaussian_sigmas: list[float] | None = None,
+    bc_types: list[BCType] | None = None,
+    tolerance: float = 1e-6,
+    max_iterations: int = 100,
 ) -> list[LineString]: ...
 
 
@@ -238,17 +238,19 @@ def smooth_linestrings(
         raise TypeError("`lines` must be a list shapely.LineString")
 
     smoothed = _smooth_rs(
-            [shapely.get_coordinates(line).tolist() for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
-            _tolist(np.atleast_1d(distances), "f8") if distances is not None else None,
-            _tolist(np.atleast_1d(n_pts), "i8") if n_pts is not None else None,
-            _tolist(np.atleast_1d(gaussian_sigmas), "f8") if gaussian_sigmas is not None else None,
-            _tolist(np.atleast_1d(bc_types), "U") if bc_types is not None else None,
-            tolerance,
-            max_iterations,
-        )
+        [shapely.get_coordinates(line).tolist() for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
+        _tolist(np.atleast_1d(distances), "f8") if distances is not None else None,
+        _tolist(np.atleast_1d(n_pts), "i8") if n_pts is not None else None,
+        _tolist(np.atleast_1d(gaussian_sigmas), "f8") if gaussian_sigmas is not None else None,
+        _tolist(np.atleast_1d(bc_types), "U") if bc_types is not None else None,
+        tolerance,
+        max_iterations,
+    )
     geom_type = shapely.get_type_id(lines[0])  # pyright: ignore[reportIndexIssue]
     if len(smoothed) == 1:
-        return shapely.LineString(smoothed[0]) if geom_type == 1 else shapely.LinearRing(smoothed[0])
+        return (
+            shapely.LineString(smoothed[0]) if geom_type == 1 else shapely.LinearRing(smoothed[0])
+        )
     return shapely.linestrings(smoothed) if geom_type == 1 else shapely.linearrings(smoothed)
 
 
@@ -257,6 +259,7 @@ def linestrings_tangent_angles(
     lines: list[LineString] | list[LinearRing],
     gaussian_sigmas: list[float] | None = None,
 ) -> list[FloatArray]: ...
+
 
 @overload
 def linestrings_tangent_angles(
@@ -312,14 +315,14 @@ def _poly_smooth(
     if n_holes == 0:
         return shapely.Polygon(exterior)
     interiors = smooth_linestrings(  # pyright: ignore[reportCallIssue]
-            polygon.interiors,  # pyright: ignore[reportArgumentType]
-            [distance] * n_holes if distance is not None else None,
-            [n_pts] * n_holes if n_pts is not None else None,
-            [gaussian_sigma] * n_holes if gaussian_sigma is not None else None,
-            ["closed"] * n_holes,  # pyright: ignore[reportArgumentType]
-            tolerance,
-            max_iterations,
-        )
+        polygon.interiors,  # pyright: ignore[reportArgumentType]
+        [distance] * n_holes if distance is not None else None,
+        [n_pts] * n_holes if n_pts is not None else None,
+        [gaussian_sigma] * n_holes if gaussian_sigma is not None else None,
+        ["closed"] * n_holes,  # pyright: ignore[reportArgumentType]
+        tolerance,
+        max_iterations,
+    )
     return shapely.Polygon(exterior, interiors)
 
 
