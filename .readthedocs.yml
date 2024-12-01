@@ -5,12 +5,15 @@ build:
   tools:
     python: latest
     rust: latest
+  jobs:
+    pre_install:
+    - maturin build --features python --release
 
 python:
   install:
+  - requirements: docs/requirements.txt
   - method: pip
     path: .
-    requirements: docs/requirements.txt
 
 mkdocs:
   configuration: mkdocs.yml
