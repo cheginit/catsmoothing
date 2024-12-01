@@ -1,0 +1,26 @@
+[package]
+name = "catsmoothing"
+version = "0.2.0"
+edition = "2021"
+
+[lib]
+name = "catsmoothing"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+nalgebra = { version = "*", features = ["serde"] }
+thiserror = "*"
+rayon = "*"
+
+[dev-dependencies]
+approx = "*"
+rand = { version = "*", features = ["std"] }
+rand_distr = "*"
+
+[dependencies.pyo3]
+version = "*"
+features = ["extension-module"]
+optional = true
+
+[features]
+python = ["pyo3"]
