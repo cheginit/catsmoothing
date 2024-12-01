@@ -118,5 +118,7 @@ fn _catsmoothing(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(linestrings_tangent_angles, m)?)?;
     m.add_function(wrap_pyfunction!(smooth_linestrings, m)?)?;
     m.add_class::<CatmullRom>()?;
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

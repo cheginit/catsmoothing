@@ -40,7 +40,7 @@ class CatmullRom:
         If not specified, a uniform grid is used (0, 1, 2, 3, ...).
     alpha : float, optional
         Catmull-Rom parameter. If specified, ``grid`` is ignored.
-    bc_types : {"closed", "natural", "clamped"}, optional
+    bc_type : {"closed", "natural", "clamped"}, optional
         Start/end conditions. If ``"closed"``, the first vertex is re-used as
         last vertex and an additional ``grid`` value has to be specified.
         If ``"clamped"``, endpoint tangents are set to ensure the spline passes
@@ -52,7 +52,7 @@ class CatmullRom:
     Examples
     --------
     >>> verts = [(0., 0.), (1., 1.), (2., 0.), (3., 1.)]
-    >>> s = CatmullRom(verts, alpha=0.5, bc_types="clamped")
+    >>> s = CatmullRom(verts, alpha=0.5, bc_type="clamped")
     >>> grid = np.linspace(0, s.grid[-1], 5)
     >>> s.evaluate(grid)
     array([[0.        , 0.        ],
@@ -82,7 +82,7 @@ class CatmullRom:
         self.gaussian_sigma = float(gaussian_sigma) if gaussian_sigma is not None else None
         self.bc_type = bc_type
         if self.bc_type not in ("natural", "closed", "clamped"):
-            raise ValueError("`bc_types` must be 'natural', 'closed', 'clamped'.")
+            raise ValueError("`bc_type` must be 'natural', 'closed', 'clamped'.")
         self._spline = _CatmullRomRS(vertices, grid, self.alpha, self.bc_type, self.gaussian_sigma)
         self.grid = np.asarray(self._spline.grid)
         self._is_frozen = True
