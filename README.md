@@ -11,6 +11,7 @@
 [![CI](https://github.com/cheginit/catsmoothing/actions/workflows/test.yml/badge.svg)](https://github.com/cheginit/catsmoothing/actions/workflows/test.yml)
 [![Documentation Status](https://readthedocs.org/projects/catsmoothing/badge/?version=latest)](https://catsmoothing.readthedocs.io/latest/?badge=latest)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/cheginit/catsmoothing)
 
 ## Overview
 
