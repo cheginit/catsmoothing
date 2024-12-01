@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
-from catsmoothing.catsmoothing import (
+from catsmoothing.api import (
     CatmullRom,
-    compute_tangents,
-    smooth_linestring,
+    linestrings_tangent_angles,
+    smooth_linestrings,
     smooth_polygon,
 )
 
@@ -16,4 +16,4 @@ try:
 except PackageNotFoundError:
     __version__ = "999"
 
-__all__ = ["CatmullRom", "smooth_linestring", "smooth_polygon", "compute_tangents"]
+__all__ = ["CatmullRom", "linestrings_tangent_angles", "smooth_linestrings", "smooth_polygon"]
