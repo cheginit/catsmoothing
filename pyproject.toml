@@ -141,7 +141,7 @@ lint.per-file-ignores."catsmoothing/catsmoothing.py" = [
   # specific type error ignored
   "PGH003",
 ]
-lint.per-file-ignores."tests/*.py" = [
+lint.per-file-ignores."catsmoothing/tests/*.py" = [
   "D100",
   "D101",
   "D102",
@@ -165,8 +165,8 @@ lint.isort.required-imports = [ "from __future__ import annotations" ]
 lint.pydocstyle.convention = "numpy"
 
 [tool.codespell]
-skip = "__pycache__,_build,.mypy_cache,.git,./htmlcov,cache,pixi.lock,**.ipynb"
-ignore-words-list = "gage,gages"
+skip = "__pycache__,_build,.mypy_cache,.git,./htmlcov,cache,pixi.lock,**.ipynb,./target"
+ignore-words-list = "crate,gages"
 
 [tool.pytest.ini_options]
 addopts = [
@@ -224,6 +224,9 @@ coverage = "*"
 pytest-cov = "*"
 pytest-sugar = "*"
 
+[tool.pixi.feature.benchmark.dependencies]
+pytest-codspeed = "*"
+
 [tool.pixi.feature.dev.dependencies]
 maturin = "*"
 numpy = ">=2"
@@ -252,6 +255,7 @@ python = "~=3.13.0"
 dev = { features = [ "dev", "py313" ] }
 test310 = { features = [ "test", "py310" ] }
 test313 = { features = [ "test", "py313" ] }
+benchmark = { features = [ "benchmark", "py313" ] }
 typecheck = { features = [ "typecheck", "py313" ] }
 lint = { features = [ "lint", "py313" ], no-default-feature = true }
 docs = { features = [ "docs", "py313" ] }
@@ -260,6 +264,9 @@ docs = { features = [ "docs", "py313" ] }
 test = "pytest --cov --junitxml=junit.xml"
 report = { cmd = [ "coverage", "report" ], depends-on = [ "test" ] }
 html = { cmd = [ "coverage", "html" ], depends-on = [ "test", "report" ] }
+
+[tool.pixi.feature.benchmark.tasks]
+benchmark = "pytest catsmoothing/tests --codspeed"
 
 [tool.pixi.feature.lint.tasks]
 lint = "pre-commit run --all-files"
