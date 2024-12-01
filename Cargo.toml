@@ -1,16 +1,24 @@
 [package]
-name = "catsmoothing"
+name = "catsmoothing-python"
 version = "0.2.0"
+authors = ["Taher Chegini <cheginit@gmail.com>"]
+homepage = "https://github.com/cheginit/catsmoothing"
+license = "MIT"
+description = "Smoothing Shapely geometries using Catmull-Rom spline"
+readme = "README.md"
 edition = "2021"
+include = ["/src", "/catsmoothing", "/LICENSE", "pyproject.toml", "Cargo.toml", "Cargo.lock"]
 
 [lib]
 name = "catsmoothing"
 crate-type = ["cdylib", "rlib"]
+doc = false
 
 [dependencies]
 nalgebra = { version = "*", features = ["serde"] }
 thiserror = "*"
 rayon = "*"
+env_logger = "*"
 
 [dev-dependencies]
 approx = "*"
