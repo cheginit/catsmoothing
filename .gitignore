@@ -117,3 +117,5 @@ pixi.lock
 # asv environments
 .asv
 pkgs
+target
+*.so
