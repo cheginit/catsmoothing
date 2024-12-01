@@ -4,6 +4,7 @@ build:
   os: ubuntu-24.04
   tools:
     python: latest
+    rust: latest
 
 python:
   install:
