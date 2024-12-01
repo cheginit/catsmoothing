@@ -5,13 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## \[Unreleased\]
+## [Unreleased]
 
 ### Added
 
 ### Changed
 
-## \[0.1.1\] - 2024-09-25
+## [0.2.0] - 2024-12-01
+
+This is a major release with breaking changes. The codebase has been
+written from scratch in Rust and the Python bindings have been updated
+to reflect the changes in the underlying implementation.
+
+### Changed
+
+- The `bc_types` argument of `CatmullRom` class has been renamed to
+    `bc_type` and custom boundary conditions have been removed. The
+    available boundary conditions are `'natural'`, `'closed'`, and
+    `'clamped'`.
+- The `smooth_linstring` function has been renamed to `smooth_linestrings`.
+    This function now handles a list of `LineString` geometries instead of a
+    single geometry. The code runs in parallel in Rust and is significantly
+    faster than the previous implementation. If a single `LineString` geometry is passed a single `LineString` geometry is returned, otherwise a list of `LineString` geometries is returned.
+- The `compute_tangents` has been renamed to `linestrings_tangent_angles`.
+    This function now handles a list of `LineString` geometries and returns
+    the tangent angles at each vertex of the input geometries. The code runs
+    in parallel in Rust and is significantly faster than the previous. If a single `LineString` geometry is passed a single array of tangent angles is returned, otherwise a list of arrays is returned.
+
+## [0.1.1] - 2024-09-25
 
 ### Added
 
@@ -26,6 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Freeze attributes of `CatmullRom` since they are not supposed to be changed,
     once the class is instantiated. If needed, a new instance should be created.
 
-## \[0.1.0\] - 2024-08-31
+## [0.1.0] - 2024-08-31
 
 - Initial release.
