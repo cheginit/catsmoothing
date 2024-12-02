@@ -235,7 +235,7 @@ def smooth_linestrings(
     """
     lines = np.atleast_1d(lines)  # pyright: ignore[reportCallIssue,reportArgumentType]
     if np.any(~np.isin(shapely.get_type_id(lines), [1, 2])):
-        raise TypeError("`lines` must be a list shapely.LineString")
+        raise TypeError("`lines` must be a list shapely.LineString or shapely.LinearRing")
 
     smoothed = _smooth_rs(
         [shapely.get_coordinates(line).tolist() for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
@@ -247,13 +247,13 @@ def smooth_linestrings(
         max_iterations,
     )
     geom_type = shapely.get_type_id(lines[0])  # pyright: ignore[reportIndexIssue]
-    if len(smoothed) == 1:
-        return (
-            shapely.LineString(smoothed[0]) if geom_type == 1 else shapely.LinearRing(smoothed[0])
-        )
     if geom_type == 1:
-        return shapely.linestrings(smoothed)  # pyright: ignore[reportReturnType]
-    return shapely.linearrings(smoothed)  # pyright: ignore[reportReturnType]
+        smoothed = [shapely.LineString(line) for line in smoothed]
+    else:
+        smoothed = [shapely.LinearRing(line) for line in smoothed]
+    if len(smoothed) == 1:
+        return smoothed[0]
+    return smoothed
 
 
 @overload
@@ -325,7 +325,7 @@ def _poly_smooth(
         tolerance,
         max_iterations,
     )
-    return shapely.Polygon(exterior, interiors)
+    return shapely.Polygon(exterior, [interiors] if n_holes == 1 else interiors)
 
 
 def smooth_polygon(
