@@ -13,3 +13,4 @@ coverage:
 comment: false
 ignore:
 - '**/__init__.py'
+- '**/tests/*.py'
