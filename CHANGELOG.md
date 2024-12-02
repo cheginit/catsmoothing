@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+## [0.2.1]
+
+### Fixed
+
+- Fix the `smooth_linestrings` function to correctly handle returning
+    multiple `LineString` geometries when a list of `LineString` geometries
+    is passed as input.
+
 ## [0.2.0] - 2024-12-01
 
 This is a major release with breaking changes. The codebase has been
