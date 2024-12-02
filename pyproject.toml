@@ -176,12 +176,12 @@ ignore_errors = true
 
 [tool.coverage.paths]
 source = [ "catsmoothing", "*/site-packages" ]
-omit = [ "**/__init__.py" ]
+omit = [ "**/__init__.py", "**/tests/*.py" ]
 
 [tool.coverage.run]
 branch = true
 source = [ "catsmoothing" ]
-omit = [ "**/__init__.py" ]
+omit = [ "**/__init__.py", "**/tests/*.py" ]
 
 [tool.pyright]
 exclude = [ "**/__pycache__", "**/__init__.py", "tests/", "docs/" ]
