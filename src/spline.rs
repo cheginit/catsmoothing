@@ -66,58 +66,55 @@ impl CatmullRomRust {
     }
 
     fn gaussian_smoothing(vertices: &[[f64; 2]], sigma: f64) -> Vec<Vector2<f64>> {
-        let mut vec_vertices: Vec<Vector2<f64>> =
+        let vec_vertices: Vec<Vector2<f64>> =
             vertices.iter().map(|&v| Vector2::new(v[0], v[1])).collect();
 
-        let kernel_size = (4.0 * sigma).ceil() as usize * 2 + 1;
+        // Set truncate value to 4 for general use
+        let truncate = 4.0;
+        let kernel_size = (2 * (truncate * sigma).ceil() as usize) + 1; // Ensure odd size
         let mut kernel = vec![0.0; kernel_size];
         let center = kernel_size / 2;
 
         // Create Gaussian kernel
         let sigma2 = sigma * sigma;
-        let normalizer = 1.0 / (2.0 * std::f64::consts::PI * sigma2).sqrt();
         for i in 0..kernel_size {
             let x = i as f64 - center as f64;
-            kernel[i] = normalizer * (-x * x / (2.0 * sigma2)).exp();
+            kernel[i] = (-x * x / (2.0 * sigma2)).exp();
         }
 
         // Normalize kernel
         let kernel_sum: f64 = kernel.iter().sum();
         kernel.iter_mut().for_each(|k| *k /= kernel_sum);
 
-        // Apply convolution (skip first and last points)
+        // Apply convolution
         let original_vertices = vec_vertices.clone();
-        for i in 1..vec_vertices.len() - 1 {
-            let mut x_sum = 0.0;
-            let mut y_sum = 0.0;
-
-            for j in 0..kernel_size {
-                let offset = j as isize - center as isize;
-                let idx = i as isize + offset;
-
-                if idx >= 0 && idx < vec_vertices.len() as isize {
-                    let v = &original_vertices[idx as usize];
-                    x_sum += v.x * kernel[j];
-                    y_sum += v.y * kernel[j];
-                } else {
-                    // Mirror boundary conditions
-                    let mirror_idx = if idx < 0 {
-                        -idx
-                    } else {
-                        2 * (vec_vertices.len() as isize - 1) - idx
-                    };
-                    if mirror_idx >= 0 && mirror_idx < vec_vertices.len() as isize {
-                        let v = &original_vertices[mirror_idx as usize];
-                        x_sum += v.x * kernel[j];
-                        y_sum += v.y * kernel[j];
-                    }
+        let smoothed_vertices: Vec<Vector2<f64>> = (0..vec_vertices.len())
+            .into_par_iter()
+            .map(|i| {
+                // Preserve boundary points
+                if i == 0 || i == vec_vertices.len() - 1 {
+                    return original_vertices[i];
                 }
-            }
 
-            vec_vertices[i] = Vector2::new(x_sum, y_sum);
-        }
+                let mut smoothed = Vector2::zeros();
+                for j in 0..kernel_size {
+                    let offset = j as isize - center as isize;
+                    let idx = if i as isize + offset < 0 {
+                        -(i as isize + offset) // Mirror
+                    } else if (i as isize + offset) >= vec_vertices.len() as isize {
+                        2 * (vec_vertices.len() as isize - 1) - (i as isize + offset)
+                    // Mirror
+                    } else {
+                        i as isize + offset
+                    };
 
-        vec_vertices
+                    smoothed += original_vertices[idx as usize] * kernel[j];
+                }
+                smoothed
+            })
+            .collect();
+
+        smoothed_vertices
     }
 
     fn get_grid(
