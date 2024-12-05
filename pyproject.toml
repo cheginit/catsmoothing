@@ -198,7 +198,6 @@ reportAttributeAccessIssue = false
 typeCheckingMode = "strict"
 
 [tool.pixi.feature.docs.tasks]
-postinstall = "maturin develop"
 build-docs = "mkdocs build --strict"
 docs = { cmd = [ "mkdocs", "serve" ], depends-on = [ "postinstall", "build-docs" ] }
 
@@ -263,11 +262,12 @@ lint = { features = [ "lint", "py313" ], no-default-feature = true }
 docs = { features = [ "docs", "py313" ] }
 
 [tool.pixi.tasks]
-preinstall = "maturin build --features python --release"
+preinstall = "maturin build --features python --release --strip"
+postinstall = "maturin develop"
 
 [tool.pixi.feature.test.tasks]
 test = "pytest --cov --junitxml=junit.xml"
-report = { cmd = [ "coverage", "report" ], depends-on = [ "preinstall", "test" ] }
+report = { cmd = [ "coverage", "report" ], depends-on = [ "preinstall", "postinstall", "test" ] }
 html = { cmd = [ "coverage", "html" ], depends-on = [ "report" ] }
 
 [tool.pixi.feature.benchmark.tasks]
