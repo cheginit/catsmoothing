@@ -19,6 +19,7 @@ nalgebra = { version = "*", features = ["serde"] }
 thiserror = "*"
 rayon = "*"
 env_logger = "*"
+num_cpus = "*"
 
 [dev-dependencies]
 approx = "*"
