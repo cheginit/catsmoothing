@@ -1,5 +1,5 @@
 use crate::error::SplineError;
-use crate::utils::{are_points_close, interpolate};
+use crate::utils::{are_points_close, init_rayon, interpolate};
 use nalgebra::{Matrix4, Matrix4x2, Vector2, Vector4};
 use rayon::prelude::*;
 
@@ -69,13 +69,13 @@ impl CatmullRomRust {
         let vec_vertices: Vec<Vector2<f64>> =
             vertices.iter().map(|&v| Vector2::new(v[0], v[1])).collect();
 
-        // Set truncate value to 4 for general use
+        // Truncate value for kernel size calculation
         let truncate = 4.0;
         let kernel_size = (2 * (truncate * sigma).ceil() as usize) + 1; // Ensure odd size
-        let mut kernel = vec![0.0; kernel_size];
         let center = kernel_size / 2;
 
-        // Create Gaussian kernel
+        // Precompute Gaussian kernel
+        let mut kernel = vec![0.0; kernel_size];
         let sigma2 = sigma * sigma;
         for i in 0..kernel_size {
             let x = i as f64 - center as f64;
@@ -86,33 +86,30 @@ impl CatmullRomRust {
         let kernel_sum: f64 = kernel.iter().sum();
         kernel.iter_mut().for_each(|k| *k /= kernel_sum);
 
-        // Apply convolution
-        let original_vertices = vec_vertices.clone();
-        let smoothed_vertices: Vec<Vector2<f64>> = (0..vec_vertices.len())
-            .into_par_iter()
-            .map(|i| {
-                // Preserve boundary points
-                if i == 0 || i == vec_vertices.len() - 1 {
-                    return original_vertices[i];
-                }
+        // Pre-pad the input vertices for boundary handling
+        let mut padded_vertices = vec![];
+        for i in (1..=center).rev() {
+            padded_vertices.push(vec_vertices[i]); // Mirror start
+        }
+        padded_vertices.extend_from_slice(&vec_vertices);
+        for i in 0..center {
+            padded_vertices.push(vec_vertices[vec_vertices.len() - 2 - i]); // Mirror end
+        }
 
-                let mut smoothed = Vector2::zeros();
-                for j in 0..kernel_size {
-                    let offset = j as isize - center as isize;
-                    let idx = if i as isize + offset < 0 {
-                        -(i as isize + offset) // Mirror
-                    } else if (i as isize + offset) >= vec_vertices.len() as isize {
-                        2 * (vec_vertices.len() as isize - 1) - (i as isize + offset)
-                    // Mirror
-                    } else {
-                        i as isize + offset
-                    };
+        // Perform smoothing
+        let mut smoothed_vertices = vec_vertices.clone();
+        for i in 1..vec_vertices.len() - 1 {
+            // Exclude first and last points
+            let mut smoothed = Vector2::zeros();
+            for j in 0..kernel_size {
+                smoothed += padded_vertices[i + j] * kernel[j];
+            }
+            smoothed_vertices[i] = smoothed;
+        }
 
-                    smoothed += original_vertices[idx as usize] * kernel[j];
-                }
-                smoothed
-            })
-            .collect();
+        // Preserve original endpoints
+        smoothed_vertices[0] = vec_vertices[0];
+        smoothed_vertices[vec_vertices.len() - 1] = vec_vertices[vec_vertices.len() - 1];
 
         smoothed_vertices
     }
@@ -266,6 +263,7 @@ impl CatmullRomRust {
             2.0, -2.0, 1.0, 1.0, -3.0, 3.0, -2.0, -1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0,
         );
 
+        init_rayon();
         let segments: Vec<Matrix4x2<f64>> = (0..n_segments)
             .into_par_iter()
             .map(|i| {
@@ -294,6 +292,7 @@ impl CatmullRomRust {
     }
 
     pub fn evaluate(&self, distances: &[f64], n: usize) -> Vec<[f64; 2]> {
+        init_rayon();
         distances
             .par_iter()
             .map(|&distance| {

@@ -1,5 +1,6 @@
 use crate::error::SplineError;
 use crate::spline::{BoundaryCondition, CatmullRomRust};
+use crate::utils::init_rayon;
 use rayon::prelude::*;
 
 pub fn line_tangents(
@@ -32,6 +33,7 @@ pub fn lines_tangents(
     if lines.len() != gaussian_sigmas.len() {
         return Err(SplineError::MismatchedInputLengths);
     }
+    init_rayon();
 
     lines
         .into_par_iter()
@@ -92,6 +94,7 @@ pub fn smooth_linestrings(
     {
         return Err(SplineError::MismatchedInputLengths);
     }
+    init_rayon();
 
     lines
         .into_par_iter()

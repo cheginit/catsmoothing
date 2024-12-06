@@ -1,3 +1,18 @@
+use num_cpus;
+use rayon::ThreadPoolBuilder;
+use std::sync::Once;
+
+static INIT_RAYON: Once = Once::new();
+
+pub fn init_rayon() {
+    INIT_RAYON.call_once(|| {
+        ThreadPoolBuilder::new()
+            .num_threads(num_cpus::get_physical())
+            .build_global()
+            .expect("Failed to configure the global Rayon thread pool");
+    });
+}
+
 pub(crate) fn are_points_close(a: &[f64; 2], b: &[f64; 2]) -> bool {
     const RTOL: f64 = 1e-5;
     const ATOL: f64 = 1e-8;
