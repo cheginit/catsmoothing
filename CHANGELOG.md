@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+## [0.2.2]
+
+### Changed
+
+- Improved the code performance by creating a global thread pool that is
+    shared across all functions that run in parallel. This avoids creating
+    a new thread pool for each function call, which was causing a performance
+    overhead.
+- Improved the performance of the `gaussian_smoothing` function by using
+    a more efficient algorithm to compute the convolution of the input
+    data with a Gaussian kernel.
+
 ## [0.2.1]
 
 ### Fixed
