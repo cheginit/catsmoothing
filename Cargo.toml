@@ -1,6 +1,6 @@
 [package]
 name = "catsmoothing-python"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Taher Chegini <cheginit@gmail.com>"]
 homepage = "https://github.com/cheginit/catsmoothing"
 license = "MIT"
