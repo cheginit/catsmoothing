@@ -1,11 +1,10 @@
-name: CI
+name: Test
 
 on:
   push:
     branches:
     - '**'
-    tags-ignore:
-    - '**'
+    tags:
   pull_request:
     branches:
     - '**'
