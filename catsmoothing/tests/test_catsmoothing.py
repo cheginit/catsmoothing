@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from itertools import product
+from typing import Literal
 
 import numpy as np
 import pytest
@@ -80,9 +81,9 @@ def verts():
 @pytest.mark.benchmark
 class TestBenchmark:
     @pytest.mark.parametrize(("alpha", "order"), list(product((0, 0.5, 1), (0, 1, 2))))
-    def test_eval(self, verts: list[tuple[float, float]], alpha: float, order: int):
+    def test_eval(self, verts: list[tuple[float, float]], alpha: float, order: Literal[0, 1, 2]):
         s = CatmullRom(verts, alpha=alpha, bc_type="closed")
-        distances = np.linspace(0, 8, 10 * 2000)
+        distances = np.linspace(0, 8, 10 * 2000, dtype=np.float64)
         s.evaluate(distances, n=order)
 
     @pytest.mark.parametrize("n_pts", [50, 100, 1000])
