@@ -34,7 +34,7 @@ repos:
     name: Sort top level statements with ssort
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.8.2
+  rev: v0.11.5
   hooks:
   - id: ruff
     name: Linting with Ruff
@@ -52,7 +52,7 @@ repos:
     args: [--max-line-length, '100']
 
 - repo: https://github.com/codespell-project/codespell
-  rev: v2.3.0
+  rev: v2.4.1
   hooks:
   - id: codespell
     name: Check common misspellings in text files with codespell.
@@ -60,7 +60,7 @@ repos:
     - tomli
 
 - repo: https://github.com/tox-dev/pyproject-fmt
-  rev: v2.5.0
+  rev: v2.5.1
   hooks:
   - id: pyproject-fmt
     name: Apply a consistent format to pyproject.toml
@@ -72,14 +72,14 @@ repos:
     args: [--autofix, --indent, '2']
 
 - repo: https://github.com/rhysd/actionlint
-  rev: v1.7.4
+  rev: v1.7.7
   hooks:
   - id: actionlint
     files: .github/workflows/
     args: [-ignore, SC1090, -ignore, SC2046, -ignore, SC2086, -ignore, SC2129, -ignore, SC2155]
 
 - repo: https://github.com/executablebooks/mdformat
-  rev: 0.7.19
+  rev: 0.7.22
   hooks:
   - id: mdformat
     additional_dependencies:
