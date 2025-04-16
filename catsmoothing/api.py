@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 import numpy as np
 import shapely
 
-from catsmoothing._catsmoothing import CatmullRom as _CatmullRomRS
+from catsmoothing._catsmoothing import CatmullRom as CatmullRomWrapper
 from catsmoothing._catsmoothing import linestrings_tangent_angles as _tangent_angles_rs
 from catsmoothing._catsmoothing import smooth_linestrings as _smooth_rs
 
@@ -23,9 +23,23 @@ if TYPE_CHECKING:
 __all__ = ["CatmullRom", "linestrings_tangent_angles", "smooth_linestrings", "smooth_polygon"]
 
 
-def _tolist(arr: Any, dtype: str) -> list[Any]:
-    """Convert array to list."""
-    return np.asarray(arr, dtype=dtype).tolist()
+@overload
+def _to_array(arr: Any, dtype: Literal["f8"]) -> NDArray[np.float64]: ...
+
+
+@overload
+def _to_array(arr: Any, dtype: Literal["i8"]) -> NDArray[np.int64]: ...
+
+
+@overload
+def _to_array(arr: Any, dtype: Literal["U"]) -> NDArray[np.str_]: ...
+
+
+def _to_array(
+    arr: Any, dtype: Literal["f8", "i8", "U"]
+) -> NDArray[np.float64] | NDArray[np.int64] | NDArray[np.str_]:
+    """Convert input to numpy array with specified dtype."""
+    return np.asarray(np.atleast_1d(arr), dtype=dtype)
 
 
 class CatmullRom:
@@ -41,7 +55,7 @@ class CatmullRom:
     alpha : float, optional
         Catmull-Rom parameter. If specified, ``grid`` is ignored.
     bc_type : {"closed", "natural", "clamped"}, optional
-        Start/end conditions. If ``"closed"``, the first vertex is re-used as
+        Start/end conditions. If ``"closed"``, the first vertex is reused as
         last vertex and an additional ``grid`` value has to be specified.
         If ``"clamped"``, endpoint tangents are set to ensure the spline passes
         through the start and end points without deviation.
@@ -76,18 +90,20 @@ class CatmullRom:
         bc_type: BCType = "natural",
         gaussian_sigma: float | None = None,
     ) -> None:
-        vertices = _tolist(vertices, "f8")
-        grid = _tolist(grid, "f8") if grid is not None else None
+        vertices = _to_array(vertices, "f8")
+        grid = _to_array(grid, "f8") if grid is not None else None
         self.alpha = float(alpha) if alpha is not None else None
         self.gaussian_sigma = float(gaussian_sigma) if gaussian_sigma is not None else None
         self.bc_type = bc_type
         if self.bc_type not in ("natural", "closed", "clamped"):
             raise ValueError("`bc_type` must be 'natural', 'closed', 'clamped'.")
-        self._spline = _CatmullRomRS(vertices, grid, self.alpha, self.bc_type, self.gaussian_sigma)
+        self._spline = CatmullRomWrapper(
+            vertices, grid, self.alpha, self.bc_type, self.gaussian_sigma
+        )
         self.grid = np.asarray(self._spline.grid)
         self._is_frozen = True
 
-    def evaluate(self, distances: list[float] | FloatArray, n: int = 0) -> FloatArray:
+    def evaluate(self, distances: list[float] | FloatArray, n: Literal[0, 1, 2] = 0) -> FloatArray:
         """Get value (or n-th derivative) at given parameter value(s).
 
         Parameters
@@ -104,7 +120,7 @@ class CatmullRom:
         """
         if n not in (0, 1, 2):
             raise ValueError("`n` must be 0, 1, or 2 since Catmull-Rom spline is cubic.")
-        results = self._spline.evaluate(_tolist(np.atleast_1d(distances), "f8"), int(n))
+        results = self._spline.evaluate(_to_array(distances, "f8"), int(n))  # pyright: ignore[reportArgumentType]
         return np.asarray(results)
 
     def uniform_distances(
@@ -220,7 +236,7 @@ def smooth_linestrings(
         i.e., no smoothing.
     bc_types : list of {"closed", "natural", "clamped"}, optional
         Start/end conditions for each LineString. If ``"closed"``, the first
-        vertex is re-used as last vertex and an additional ``distances`` value
+        vertex is reused as last vertex and an additional ``distances`` value
         has to be specified. If ``"clamped"``, endpoint tangents are set to
         ensure the spline passes through the start and end points without deviation.
     tolerance : float, optional
@@ -238,11 +254,11 @@ def smooth_linestrings(
         raise TypeError("`lines` must be a list shapely.LineString or shapely.LinearRing")
 
     smoothed = _smooth_rs(
-        [shapely.get_coordinates(line).tolist() for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
-        _tolist(np.atleast_1d(distances), "f8") if distances is not None else None,
-        _tolist(np.atleast_1d(n_pts), "i8") if n_pts is not None else None,
-        _tolist(np.atleast_1d(gaussian_sigmas), "f8") if gaussian_sigmas is not None else None,
-        _tolist(np.atleast_1d(bc_types), "U") if bc_types is not None else None,
+        [shapely.get_coordinates(line) for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
+        _to_array(distances, "f8") if distances is not None else None,
+        _to_array(n_pts, "i8") if n_pts is not None else None,
+        _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
+        _to_array(bc_types, "U") if bc_types is not None else None,
         tolerance,
         max_iterations,
     )
@@ -293,8 +309,8 @@ def linestrings_tangent_angles(
     if np.any(~np.isin(shapely.get_type_id(lines), [1, 2])):
         raise TypeError("`lines` must be a list shapely.LineString")
     angles = _tangent_angles_rs(
-        [shapely.get_coordinates(line).tolist() for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
-        _tolist(np.atleast_1d(gaussian_sigmas), "f8") if gaussian_sigmas is not None else None,
+        [shapely.get_coordinates(line) for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
+        _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
     )
     if len(angles) == 1:
         return np.asarray(angles[0])

@@ -1,13 +1,12 @@
 use crate::error::SplineError;
-use crate::spline::{BoundaryCondition, CatmullRomRust};
-use crate::utils::init_rayon;
-use rayon::prelude::*;
+use crate::splines::{BoundaryCondition, CatmullRom};
+use ndarray::parallel::prelude::*;
 
 pub fn line_tangents(
     line: Vec<[f64; 2]>,
     gaussian_sigma: Option<f64>,
 ) -> Result<Vec<f64>, SplineError> {
-    let spline = CatmullRomRust::new(
+    let spline = CatmullRom::new(
         line,
         None,
         Some(0.5),
@@ -15,13 +14,13 @@ pub fn line_tangents(
         gaussian_sigma,
     )?;
 
-    // Get tangent vectors by evaluating first derivative (n=1)
+    // Evaluate first derivative (n = 1) to obtain tangent vectors
     let tangent_vectors = spline.evaluate(&spline.grid, 1);
 
-    // Convert tangent vectors to angles using atan2
+    // Convert tangent vectors to angles using atan2(dy, dx)
     let tangent_angles: Vec<f64> = tangent_vectors
         .iter()
-        .map(|[dx, dy]| f64::atan2(*dy, *dx)) // Changed order to match Python's np.arctan2(dy, dx)
+        .map(|[dx, dy]| f64::atan2(*dy, *dx))
         .collect();
     Ok(tangent_angles)
 }
@@ -33,8 +32,7 @@ pub fn lines_tangents(
     if lines.len() != gaussian_sigmas.len() {
         return Err(SplineError::MismatchedInputLengths);
     }
-    init_rayon();
-
+    // Use ndarray-parallel's prelude for parallel iteration.
     lines
         .into_par_iter()
         .zip(gaussian_sigmas)
@@ -51,7 +49,7 @@ pub fn smooth_linestring(
     tolerance: Option<f64>,
     max_iterations: Option<usize>,
 ) -> Result<Vec<[f64; 2]>, SplineError> {
-    let spline = CatmullRomRust::new(
+    let spline = CatmullRom::new(
         vertices,
         None,
         Some(0.5),
@@ -61,7 +59,6 @@ pub fn smooth_linestring(
     if n_pts.is_none() && distance.is_none() {
         return Err(SplineError::InvalidSmoothingParameters);
     }
-
     let mut n_pts_ = n_pts.unwrap_or(0);
     if n_pts_ == 0 {
         let total_length = spline.grid[spline.grid.len() - 1];
@@ -72,9 +69,7 @@ pub fn smooth_linestring(
         tolerance.unwrap_or(1e-6),
         max_iterations.unwrap_or(100),
     );
-
     let points = spline.evaluate(&distances, 0);
-
     Ok(points)
 }
 
@@ -94,8 +89,7 @@ pub fn smooth_linestrings(
     {
         return Err(SplineError::MismatchedInputLengths);
     }
-    init_rayon();
-
+    // Use ndarray-parallel's prelude for parallel iteration.
     lines
         .into_par_iter()
         .zip(distances)

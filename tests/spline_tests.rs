@@ -1,7 +1,6 @@
-use catsmoothing::{
-    line_tangents, lines_tangents, smooth_linestring, smooth_linestrings, BoundaryCondition,
-    CatmullRomRust, SplineError,
-};
+use catsmoothing::SplineError;
+use catsmoothing::{line_tangents, lines_tangents, smooth_linestring, smooth_linestrings};
+use catsmoothing::{BoundaryCondition, CatmullRom};
 use rand::prelude::*;
 use rand_distr::{Distribution, StandardNormal};
 
@@ -36,12 +35,11 @@ fn test_spline_alpha_0() {
     ];
     let n_pts = 15.0;
     let spline =
-        CatmullRomRust::new(vertices, None, Some(0.0), BoundaryCondition::Closed, None).unwrap();
+        CatmullRom::new(vertices, None, Some(0.0), BoundaryCondition::Closed, None).unwrap();
 
     let grid_start = spline.grid[0];
     let grid_end = spline.grid.last().unwrap();
     let dots = ((grid_end - grid_start) * n_pts) as usize + 1;
-
     let distances: Vec<f64> = (0..dots).map(|i| grid_start + (i as f64) / n_pts).collect();
 
     let points = spline.evaluate(&distances, 0);
@@ -63,12 +61,11 @@ fn test_spline_alpha_0_5() {
     ];
     let n_pts = 15.0;
     let spline =
-        CatmullRomRust::new(vertices, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
+        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
 
     let grid_start = spline.grid[0];
     let grid_end = spline.grid.last().unwrap();
     let dots = ((grid_end - grid_start) * n_pts) as usize + 1;
-
     let distances: Vec<f64> = (0..dots).map(|i| grid_start + (i as f64) / n_pts).collect();
 
     let points = spline.evaluate(&distances, 0);
@@ -89,11 +86,10 @@ fn test_spline_alpha_1() {
     ];
     let n_pts = 15.0;
     let spline =
-        CatmullRomRust::new(vertices, None, Some(1.0), BoundaryCondition::Closed, None).unwrap();
+        CatmullRom::new(vertices, None, Some(1.0), BoundaryCondition::Closed, None).unwrap();
 
     let grid_start = spline.grid[0];
     let grid_end = *spline.grid.last().unwrap();
-
     let dots = ((grid_end - grid_start) * n_pts).floor() as usize + 1;
     let distances: Vec<f64> = (0..dots).map(|i| grid_start + (i as f64) / n_pts).collect();
 
@@ -104,19 +100,49 @@ fn test_spline_alpha_1() {
 }
 
 #[test]
+fn test_uniform_distances() {
+    // Simple curved path
+    let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
+    let spline =
+        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
+
+    let distances = spline.uniform_distances(5, 1e-6, 10);
+
+    // Check count and monotonicity
+    assert_eq!(distances.len(), 5);
+    for i in 1..distances.len() {
+        assert!(distances[i] > distances[i - 1]);
+    }
+
+    // Verify roughly equal spacing of evaluated points
+    let points = spline.evaluate(&distances, 0);
+    let diffs: Vec<f64> = points
+        .windows(2)
+        .map(|w| {
+            let dx = w[1][0] - w[0][0];
+            let dy = w[1][1] - w[0][1];
+            (dx * dx + dy * dy).sqrt()
+        })
+        .collect();
+
+    let avg_diff: f64 = diffs.iter().sum::<f64>() / diffs.len() as f64;
+    for diff in diffs {
+        assert!((diff - avg_diff).abs() / avg_diff < 0.01);
+    }
+}
+
+#[test]
 fn test_compute_tangent_angles() {
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
 
     let angles = lines_tangents(vec![vertices.clone()], vec![None]).unwrap();
 
     // For this case, we expect specific angles based on the Catmull-Rom spline properties
-    // First angle should be ~0.983 radians (~56.3 degrees, upward)
+    // First angle should be ~0.983 radians (~56.3° upward)
     assert_close(&[angles[0][0]], &[0.983], 1e-3);
-
     // Middle angle should be 0 (horizontal tangent at peak)
     assert_close(&[angles[0][1]], &[0.0], 1e-6);
-
-    // Last angle should be ~-0.983 radians (~-56.3 degrees, downward)
+    // Last angle should be ~-0.983 radians (~-56.3° downward)
     assert_close(&[angles[0][2]], &[-0.983], 1e-3);
 
     // Test with Gaussian smoothing
@@ -134,45 +160,6 @@ fn test_invalid_input() {
 }
 
 #[test]
-fn test_uniform_distances() {
-    // Create a simple curved path
-    let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
-
-    let spline =
-        CatmullRomRust::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
-
-    let distances = spline.uniform_distances(5, 1e-6, 10);
-
-    // Check number of points
-    assert_eq!(distances.len(), 5);
-
-    // Check that distances are monotonically increasing
-    for i in 1..distances.len() {
-        assert!(distances[i] > distances[i - 1]);
-    }
-
-    // Evaluate points at these distances
-    let points = spline.evaluate(&distances, 0);
-
-    // Check that consecutive points are roughly equidistant
-    let diffs: Vec<f64> = points
-        .windows(2)
-        .map(|window| {
-            let dx = window[1][0] - window[0][0];
-            let dy = window[1][1] - window[0][1];
-            (dx * dx + dy * dy).sqrt()
-        })
-        .collect();
-
-    let avg_diff: f64 = diffs.iter().sum::<f64>() / diffs.len() as f64;
-
-    // Check that all segments are within 1% of average length
-    for diff in diffs {
-        assert!((diff - avg_diff).abs() / avg_diff < 0.01);
-    }
-}
-
-#[test]
 fn test_smooth_linestring_np() {
     let mut rng = StdRng::seed_from_u64(123);
     let vertices: Vec<[f64; 2]> = (0..50)
@@ -185,9 +172,9 @@ fn test_smooth_linestring_np() {
         .collect();
     let line_length: f64 = vertices
         .windows(2)
-        .map(|window| {
-            let dx = window[1][0] - window[0][0];
-            let dy = window[1][1] - window[0][1];
+        .map(|w| {
+            let dx = w[1][0] - w[0][0];
+            let dy = w[1][1] - w[0][1];
             (dx * dx + dy * dy).sqrt()
         })
         .sum();
@@ -195,15 +182,15 @@ fn test_smooth_linestring_np() {
     let smoothed =
         smooth_linestring(vertices, None, Some(30), Some(2.0), None, None, None).unwrap();
 
-    // Check that smoothed line has same length as input
+    // Check that smoothed line has 30 points
     assert_eq!(smoothed.len(), 30);
 
-    // Check that length of smoothed line is close to length of input
+    // Check that length of smoothed line is close to input length
     let smoothed_length: f64 = smoothed
         .windows(2)
-        .map(|window| {
-            let dx = window[1][0] - window[0][0];
-            let dy = window[1][1] - window[0][1];
+        .map(|w| {
+            let dx = w[1][0] - w[0][0];
+            let dy = w[1][1] - w[0][1];
             (dx * dx + dy * dy).sqrt()
         })
         .sum();
@@ -223,9 +210,9 @@ fn test_smooth_linestring_dist() {
         .collect();
     let orig_length: f64 = vertices
         .windows(2)
-        .map(|window| {
-            let dx = window[1][0] - window[0][0];
-            let dy = window[1][1] - window[0][1];
+        .map(|w| {
+            let dx = w[1][0] - w[0][0];
+            let dy = w[1][1] - w[0][1];
             (dx * dx + dy * dy).sqrt()
         })
         .sum();
@@ -233,15 +220,15 @@ fn test_smooth_linestring_dist() {
     let smoothed =
         smooth_linestring(vertices, Some(0.2), None, Some(2.0), None, None, None).unwrap();
 
-    // Check that smoothed line has same length as input
+    // Check that smoothed line has 86 points
     assert_eq!(smoothed.len(), 86);
 
-    // Check that length of smoothed line is close to length of input
+    // Check that length of smoothed line is close to input length
     let smoothed_length: f64 = smoothed
         .windows(2)
-        .map(|window| {
-            let dx = window[1][0] - window[0][0];
-            let dy = window[1][1] - window[0][1];
+        .map(|w| {
+            let dx = w[1][0] - w[0][0];
+            let dy = w[1][1] - w[0][1];
             (dx * dx + dy * dy).sqrt()
         })
         .sum();
@@ -269,9 +256,9 @@ fn test_smooth_linestrings() {
         .map(|vertices| {
             vertices
                 .windows(2)
-                .map(|window| {
-                    let dx = window[1][0] - window[0][0];
-                    let dy = window[1][1] - window[0][1];
+                .map(|w| {
+                    let dx = w[1][0] - w[0][0];
+                    let dy = w[1][1] - w[0][1];
                     (dx * dx + dy * dy).sqrt()
                 })
                 .sum()
@@ -290,7 +277,6 @@ fn test_smooth_linestrings() {
     let tolerance = Some(1e-6);
     let max_iterations = Some(100);
 
-    // Smooth the lines
     let smoothed_lines = smooth_linestrings(
         lines,
         distances,
@@ -302,21 +288,21 @@ fn test_smooth_linestrings() {
     )
     .unwrap();
 
-    // Check that the smoothed lines have the correct lengths
+    // Check that the smoothed lines have the expected number of points
     for (smoothed, expected_len) in smoothed_lines.iter().zip([30, 104, 40]) {
         assert_eq!(smoothed.len(), expected_len);
     }
 
-    // Check that the lengths of the smoothed lines are close to the original
-    for (smoothed, &original_length) in smoothed_lines.iter().zip(&line_lengths) {
+    // Check that the smoothed line lengths are close to the original lengths
+    for (smoothed, &orig_length) in smoothed_lines.iter().zip(&line_lengths) {
         let smoothed_length: f64 = smoothed
             .windows(2)
-            .map(|window| {
-                let dx = window[1][0] - window[0][0];
-                let dy = window[1][1] - window[0][1];
+            .map(|w| {
+                let dx = w[1][0] - w[0][0];
+                let dy = w[1][1] - w[0][1];
                 (dx * dx + dy * dy).sqrt()
             })
             .sum();
-        assert_close(&[original_length], &[smoothed_length], 2.9);
+        assert_close(&[orig_length], &[smoothed_length], 2.9);
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "catsmoothing-python"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Taher Chegini <cheginit@gmail.com>"]
 homepage = "https://github.com/cheginit/catsmoothing"
 license = "MIT"
@@ -15,11 +15,26 @@ crate-type = ["cdylib", "rlib"]
 doc = false
 
 [dependencies]
-nalgebra = { version = "*", features = ["serde"] }
 thiserror = "*"
-rayon = "*"
-env_logger = "*"
-num_cpus = "*"
+ndarray = { version = "*", features = ["rayon"] }
+
+[dependencies.numpy]
+version = "*"
+optional = true
+
+[dependencies.blas-src]
+version = "*"
+optional = true
+features = ["accelerate"]
+
+[dependencies.accelerate-src]
+version = "*"
+optional = true
+
+[dependencies.openblas-src]
+version = "*"
+optional = true
+features = ["cblas", "system"]
 
 [dev-dependencies]
 approx = "*"
@@ -28,8 +43,9 @@ rand_distr = "*"
 
 [dependencies.pyo3]
 version = "*"
-features = ["extension-module"]
+features = ["extension-module", "multiple-pymethods"]
 optional = true
 
 [features]
-python = ["pyo3"]
+default = []
+python = ["pyo3", "numpy", "blas-src", "accelerate-src"]
