@@ -7,13 +7,13 @@ use rayon::ThreadPoolBuilder;
 use std::sync::Once;
 
 // Rayon initialization (same as nalgebra version)
-static INIT_RAYON: Once = Once::new();
 pub fn init_rayon() {
+    static INIT_RAYON: Once = Once::new();
     INIT_RAYON.call_once(|| {
-        ThreadPoolBuilder::new()
+        let _ = ThreadPoolBuilder::new()
             .num_threads(num_cpus::get_physical())
-            .build_global()
-            .expect("Failed to configure the global Rayon thread pool");
+            .build_global();
+        // Ignore errors - pool might already be initialized
     });
 }
 
