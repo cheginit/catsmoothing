@@ -112,7 +112,6 @@ results
 .copilot-instructions.md
 junit.xml
 .coverage
-pixi.lock
 .codspeed
 target
 *.so
