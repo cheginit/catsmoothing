@@ -1741,7 +1741,7 @@ packages:
 - pypi: .
   name: catsmoothing
   version: 0.2.3
-  sha256: bfb41e459daf74d0ef7767eb5c78a72a8fbed8741ed2c005f2cfaa78909054be
+  sha256: c9acce070f796ef4c467ac616c5cfc9fc8d2696aab19e7233c181909a0f590fb
   requires_dist:
   - numpy>=2
   - shapely>=2
