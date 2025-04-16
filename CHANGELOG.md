@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [0.3.0] - 2025-04-16
 
 ### Changed
 
-## [0.2.2]
+- Refactor the Rust code base to use `ndarray` instead of `nalgebra` for
+    matrix operations since the Python API uses `numpy`. This change
+    improves the performance of the code as it avoids unnecessary
+    conversions between `nalgebra` and `numpy` arrays.
+
+## [0.2.2] - 2024-12-06
 
 ### Changed
 
@@ -23,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     a more efficient algorithm to compute the convolution of the input
     data with a Gaussian kernel.
 
-## [0.2.1]
+## [0.2.1] - 2024-12-02
 
 ### Fixed
 
