@@ -16,6 +16,9 @@ doc = false
 
 [dependencies]
 thiserror = "*"
+num_cpus = "*"
+rayon = "*"
+lazy_static = "*"
 ndarray = { version = "*", features = ["rayon"] }
 
 [dependencies.numpy]
