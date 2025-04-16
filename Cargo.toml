@@ -22,20 +22,6 @@ ndarray = { version = "*", features = ["rayon"] }
 version = "*"
 optional = true
 
-[dependencies.blas-src]
-version = "*"
-optional = true
-features = ["accelerate"]
-
-[dependencies.accelerate-src]
-version = "*"
-optional = true
-
-[dependencies.openblas-src]
-version = "*"
-optional = true
-features = ["cblas", "system"]
-
 [dev-dependencies]
 approx = "*"
 rand = { version = "*", features = ["std"] }
@@ -48,4 +34,4 @@ optional = true
 
 [features]
 default = []
-python = ["pyo3", "numpy", "blas-src", "accelerate-src"]
+python = ["pyo3", "numpy"]
