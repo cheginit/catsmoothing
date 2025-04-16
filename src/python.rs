@@ -16,6 +16,24 @@ fn array2_to_vec(line: ArrayView2<f64>) -> Vec<[f64; 2]> {
     line.outer_iter().map(|row| [row[0], row[1]]).collect()
 }
 
+// Helper: convert Vec<[f64; 2]> points to flattened Vec<f64> for ndarray
+fn points_to_flat(points: Vec<[f64; 2]>) -> (usize, Vec<f64>) {
+    let n = points.len();
+    let flat: Vec<f64> = points.into_iter().flat_map(|pt| [pt[0], pt[1]]).collect();
+    (n, flat)
+}
+
+// Helper: validate array length matches expected count, returning PyErr if not
+fn validate_array_length(arr_len: usize, expected: usize, name: &str) -> PyResult<()> {
+    if arr_len != expected {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+            "Length of {} must match number of lines",
+            name
+        )));
+    }
+    Ok(())
+}
+
 /// Python function: linestrings_tangent_angles
 ///
 /// Parameters:
@@ -32,31 +50,21 @@ fn linestrings_tangent_angles(
 ) -> PyResult<Vec<Py<PyArray1<f64>>>> {
     let n_lines = vertices.len();
     let gs = gaussian_sigmas.unwrap_or_else(|| vec![None; n_lines]);
+
     let mut results = Vec::with_capacity(n_lines);
     for (line_arr, sigma) in vertices.into_iter().zip(gs.into_iter()) {
-        let view: ArrayView2<f64> = line_arr.as_array();
-        let line_vec = array2_to_vec(view);
-        // Call the Rust function; it expects Vec<Vec<[f64; 2]>> and Vec<Option<f64>>.
+        let line_vec = array2_to_vec(line_arr.as_array());
+
         let tangents =
             linestring::lines_tangents(vec![line_vec], vec![sigma]).map_err(PyErr::from)?;
-        let tv_vec = tangents.into_iter().next().ok_or_else(|| {
+
+        let angles = tangents.into_iter().next().ok_or_else(|| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>("No tangent data returned")
         })?;
-        let n = tv_vec.len();
-        // Use pt.iter().cloned() to flatten the Vec<[f64;2]>.
-        // Convert each angle to a unit vector for visualization
-        let tv: Vec<[f64; 2]> = tv_vec
-            .iter()
-            .map(|&angle| [angle.cos(), angle.sin()])
-            .collect();
-        let flat: Vec<f64> = tv.into_iter().flat_map(|pt| vec![pt[0], pt[1]]).collect();
-        let tv = Array2::from_shape_vec((n, 2), flat).unwrap();
-        let angles: Vec<f64> = tv
-            .outer_iter()
-            .map(|row| f64::atan2(row[1], row[0]))
-            .collect();
+
         results.push(Array1::from(angles).into_pyarray(py).to_owned().into());
     }
+
     Ok(results)
 }
 
@@ -100,58 +108,41 @@ fn smooth_linestrings(
         .map(|line_arr| array2_to_vec(line_arr.as_array()))
         .collect();
 
-    // Bind slices to extend lifetime.
     let ds: Vec<Option<f64>> = if let Some(arr) = distances {
-        let a = arr.as_array();
-        let slice = a.as_slice().ok_or_else(|| {
+        let array_view = arr.as_array();
+        let slice = array_view.as_slice().ok_or_else(|| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid distances array")
         })?;
-        if slice.len() != n_lines {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Length of distances must match number of lines",
-            ));
-        }
+        validate_array_length(slice.len(), n_lines, "distances")?;
         slice.iter().map(|&x| Some(x)).collect()
     } else {
         vec![None; n_lines]
     };
 
     let n_pts_vec: Vec<Option<usize>> = if let Some(arr) = n_pts {
-        let a = arr.as_array();
-        let slice = a.as_slice().ok_or_else(|| {
+        let array_view = arr.as_array();
+        let slice = array_view.as_slice().ok_or_else(|| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid n_pts array")
         })?;
-        if slice.len() != n_lines {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Length of n_pts must match number of lines",
-            ));
-        }
+        validate_array_length(slice.len(), n_lines, "n_pts")?;
         slice.iter().map(|&x| Some(x as usize)).collect()
     } else {
         vec![None; n_lines]
     };
 
     let gs: Vec<Option<f64>> = if let Some(arr) = gaussian_sigmas {
-        let a = arr.as_array();
-        let slice = a.as_slice().ok_or_else(|| {
+        let array_view = arr.as_array();
+        let slice = array_view.as_slice().ok_or_else(|| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid gaussian_sigmas array")
         })?;
-        if slice.len() != n_lines {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Length of gaussian_sigmas must match number of lines",
-            ));
-        }
+        validate_array_length(slice.len(), n_lines, "gaussian_sigmas")?;
         slice.iter().map(|&x| Some(x)).collect()
     } else {
         vec![None; n_lines]
     };
 
     let bc_conv: Vec<Option<BoundaryCondition>> = if let Some(bcs) = bc_types {
-        if bcs.len() != n_lines {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Length of bc_types must match number of lines",
-            ));
-        }
+        validate_array_length(bcs.len(), n_lines, "bc_types")?;
         bcs.into_iter()
             .map(|s| match s.to_lowercase().as_str() {
                 "natural" => Ok(Some(BoundaryCondition::Natural)),
@@ -176,15 +167,19 @@ fn smooth_linestrings(
         Some(max_iterations),
     )
     .map_err(PyErr::from)?;
+
     let result: Vec<Py<PyArray2<f64>>> = smoothed_vec
         .into_iter()
         .map(|line| {
-            let n = line.len();
-            let flat: Vec<f64> = line.into_iter().flat_map(|pt| vec![pt[0], pt[1]]).collect();
-            let arr = Array2::from_shape_vec((n, 2), flat).unwrap();
-            arr.into_pyarray(py).to_owned().into()
+            let (n, flat) = points_to_flat(line);
+            Array2::from_shape_vec((n, 2), flat)
+                .unwrap()
+                .into_pyarray(py)
+                .to_owned()
+                .into()
         })
         .collect();
+
     Ok(result)
 }
 
@@ -240,12 +235,18 @@ impl CatmullRomWrapper {
         distances: PyReadonlyArray1<f64>,
         n: usize,
     ) -> Py<PyArray2<f64>> {
-        let d = distances.as_array();
-        let pts = self.inner.evaluate(d.as_slice().unwrap(), n);
-        let n_pts = pts.len();
-        let flat: Vec<f64> = pts.into_iter().flat_map(|pt| vec![pt[0], pt[1]]).collect();
-        let arr = Array2::from_shape_vec((n_pts, 2), flat).unwrap();
-        arr.into_pyarray(py).to_owned().into()
+        let array_view = distances.as_array();
+        let slice = array_view.as_slice().unwrap();
+
+        let pts = self.inner.evaluate(slice, n);
+        let (n_pts, flat) = points_to_flat(pts);
+
+        // Convert to Python array
+        Array2::from_shape_vec((n_pts, 2), flat)
+            .unwrap()
+            .into_pyarray(py)
+            .to_owned()
+            .into()
     }
 
     fn uniform_distances(
