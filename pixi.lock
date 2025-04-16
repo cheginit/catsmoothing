@@ -1789,8 +1789,8 @@ packages:
   timestamp: 1738298232550
 - pypi: .
   name: catsmoothing
-  version: 0.3.0
-  sha256: ddff849701f4e92e9588c748005e5060bbf99af1a6b56e7c0f3d14c955b3cd69
+  version: 0.3.1
+  sha256: d199424a4d207828a3fe29249926a89aa693887a5c4ff00e227a5caa619de897
   requires_dist:
   - numpy>=2
   - shapely>=2
