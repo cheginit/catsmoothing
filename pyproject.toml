@@ -245,12 +245,14 @@ catsmoothing = { path = ".", editable = true }
 [tool.pixi.feature.py310.dependencies]
 python = "~=3.10.0"
 maturin = "*"
+uv = "*"
 pip = "*"
 tomli = "*"
 
 [tool.pixi.feature.py313.dependencies]
 python = "~=3.13.0"
 maturin = "*"
+uv = "*"
 pip = "*"
 
 [tool.pixi.environments]
