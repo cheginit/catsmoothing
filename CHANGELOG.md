@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     matrix operations since the Python API uses `numpy`. This change
     improves the performance of the code as it avoids unnecessary
     conversions between `nalgebra` and `numpy` arrays.
+- Added specialized `Vec2D` structure to replace generic `Array1<f64>` for 2D vectors
+- Improved memory management with preallocation and reduced temporary allocations
+- Optimized mathematical operations with direct 2D vector calculations
+- Added `lazy_static` Hermitian matrix to avoid recreation
+- Eliminated redundant vector storage and minimized cloning
+- Improved Gaussian smoothing for better cache utilization
+- Fixed thread safety issues for proper parallel execution
 
 ## [0.2.2] - 2024-12-06
 
