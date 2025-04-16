@@ -5,6 +5,7 @@ requires = [ "maturin>=1.4,<2" ]
 
 [project]
 name = "catsmoothing"
+version = "0.2.3"
 description = "Smoothing Shapely geometries using Catmull-Rom spline"
 readme = "README.md"
 license = { text = "MIT" }
@@ -27,6 +28,34 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [ "numpy>=2", "shapely>=2" ]
+optional-dependencies.benchmark = [
+  "pytest-codspeed",
+]
+optional-dependencies.dev = [
+  "ipykernel",
+  "ipywidgets",
+  "matplotlib",
+  "pytest",
+]
+optional-dependencies.docs = [
+  "black",
+  "mkdocs",
+  "mkdocs-jupyter",
+  "mkdocs-material",
+  "mkdocstrings-python",
+]
+optional-dependencies.lint = [
+  "codespell",
+  "pre-commit",
+]
+optional-dependencies.test = [
+  "coverage[toml]",
+  "pytest-cov",
+  "pytest-sugar",
+]
+optional-dependencies.typecheck = [
+  "pyright",
+]
 urls.Changelog = "https://github.com/cheginit/catsmoothing/blob/main/CHANGELOG.md"
 urls.CI = "https://github.com/cheginit/catsmoothing/actions"
 urls.Homepage = "https://github.com/cheginit/catsmoothing"
@@ -37,6 +66,12 @@ urls.Issues = "https://github.com/cheginit/catsmoothing/issues"
 # extension module (skips linking against libpython.so)
 features = [ "pyo3/extension-module", "python" ]
 module-name = "catsmoothing._catsmoothing"
+# Bindings type
+bindings = "pyo3"
+# Strip the library for minimum file size
+strip = true
+# Build artifacts with the specified Cargo profile
+profile = "release"
 
 [tool.ruff]
 target-version = "py310"
@@ -125,7 +160,6 @@ lint.ignore = [
   # custom exception
   "TRY003",
 ]
-
 lint.per-file-ignores."catsmoothing/catsmoothing.py" = [
   # specific type error ignored
   "PGH003",
@@ -145,22 +179,32 @@ lint.per-file-ignores."catsmoothing/tests/*.py" = [
   "S101",
 ]
 lint.extend-safe-fixes = [
+  # module level imports
+  "E402",
+  # break down assert
+  "PT018",
+  # Move imports
+  "TC",
   # absolute imports
   "TID252",
 ]
 lint.isort.known-first-party = [ "catsmoothing" ]
 lint.isort.required-imports = [ "from __future__ import annotations" ]
-
 lint.pydocstyle.convention = "numpy"
 
 [tool.codespell]
-skip = "__pycache__,_build,.mypy_cache,.git,./htmlcov,cache,pixi.lock,**.ipynb,./target"
+skip = "__pycache__,_build,.mypy_cache,.git,./htmlcov,cache,pixi.lock,**.ipynb,./target,./site/"
 ignore-words-list = "crate,gages"
 
 [tool.pytest.ini_options]
 addopts = [
   "--import-mode=importlib",
   "-v",
+  "--cov",
+  "--cov-append",
+  "--cov-branch",
+  "--cov-report=xml",
+  "--junitxml=junit.xml",
   "--durations=5",
 ]
 doctest_optionflags = 'NORMALIZE_WHITESPACE IGNORE_EXCEPTION_DETAIL NUMBER'
@@ -184,7 +228,7 @@ source = [ "catsmoothing" ]
 omit = [ "**/__init__.py", "**/tests/*.py" ]
 
 [tool.pyright]
-exclude = [ "**/__pycache__", "**/__init__.py", "tests/", "docs/" ]
+exclude = [ "**/__pycache__", "**/__init__.py", "catsmoothing/tests", "docs/" ]
 include = [ "catsmoothing" ]
 reportMissingTypeStubs = false
 reportUnknownArgumentType = false
@@ -197,49 +241,12 @@ reportUntypedFunctionDecorator = false
 reportAttributeAccessIssue = false
 typeCheckingMode = "strict"
 
-[tool.pixi.feature.docs.tasks]
-build-docs = "mkdocs build --strict"
-docs = { cmd = [ "mkdocs", "serve" ], depends-on = [ "postinstall", "build-docs" ] }
-
 [tool.pixi.project]
 channels = [ "conda-forge" ]
 platforms = [ "linux-64", "osx-64", "osx-arm64", "win-64" ]
 
 [tool.pixi.pypi-dependencies]
 catsmoothing = { path = ".", editable = true }
-
-[tool.pixi.feature.docs.pypi-dependencies]
-black = "*"
-mdx-truly-sane-lists = ">=1.3"
-mkdocs = ">=1.5.3"
-mkdocs-jupyter = "*"
-mkdocs-material = ">=9.5.20"
-mkdocstrings-python = "*"
-
-[tool.pixi.feature.test.dependencies]
-coverage = "*"
-pytest-cov = "*"
-pytest-sugar = "*"
-
-[tool.pixi.feature.benchmark.dependencies]
-pytest-codspeed = "*"
-
-[tool.pixi.feature.dev.dependencies]
-maturin = "*"
-numpy = ">=2"
-shapely = ">=2"
-asv = "*"
-ipykernel = "*"
-ipywidgets = "*"
-matplotlib-base = "*"
-pytest = "*"
-
-[tool.pixi.feature.lint.dependencies]
-pre-commit = "*"
-codespell = "*"
-
-[tool.pixi.feature.typecheck.dependencies]
-pyright = "*"
 
 [tool.pixi.feature.py310.dependencies]
 python = "~=3.10.0"
@@ -262,12 +269,11 @@ lint = { features = [ "lint", "py313" ], no-default-feature = true }
 docs = { features = [ "docs", "py313" ] }
 
 [tool.pixi.tasks]
-preinstall = "maturin build --features python --release --strip"
-postinstall = "maturin develop"
+preinstall = "maturin develop --uv"
 
 [tool.pixi.feature.test.tasks]
 test = "pytest --cov --junitxml=junit.xml"
-report = { cmd = [ "coverage", "report" ], depends-on = [ "preinstall", "postinstall", "test" ] }
+report = { cmd = [ "coverage", "report" ], depends-on = [ "preinstall", "test" ] }
 html = { cmd = [ "coverage", "html" ], depends-on = [ "report" ] }
 
 [tool.pixi.feature.benchmark.tasks]
@@ -279,4 +285,8 @@ pcupdate = "pre-commit autoupdate"
 spell = "codespell -w"
 
 [tool.pixi.feature.typecheck.tasks]
-typecheck = "pyright"
+typecheck = { cmd = [ "pyright" ], depends-on = [ "preinstall" ] }
+
+[tool.pixi.feature.docs.tasks]
+build-docs = "mkdocs build --strict"
+docs = { cmd = [ "mkdocs", "serve" ], depends-on = [ "preinstall", "build-docs" ] }
