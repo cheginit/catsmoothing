@@ -6,6 +6,7 @@
 [![Conda](https://img.shields.io/conda/vn/conda-forge/catsmoothing)](https://anaconda.org/conda-forge/catsmoothing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/cheginit/catsmoothing/HEAD?labpath=docs%2Fexamples)
+[![Downloads](https://img.shields.io/conda/dn/conda-forge/catsmoothing.svg)](https://anaconda.org/conda-forge/catsmoothing)
 
 [![codecov](https://codecov.io/gh/cheginit/catsmoothing/graph/badge.svg?token=U2638J9WKM)](https://codecov.io/gh/cheginit/catsmoothing)
 [![CI](https://github.com/cheginit/catsmoothing/actions/workflows/test.yml/badge.svg)](https://github.com/cheginit/catsmoothing/actions/workflows/test.yml)
