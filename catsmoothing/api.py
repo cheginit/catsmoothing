@@ -235,10 +235,11 @@ def smooth_linestrings(
         Standard deviation for Gaussian kernel, by default None,
         i.e., no smoothing.
     bc_types : list of {"closed", "natural", "clamped"}, optional
-        Start/end conditions for each LineString. If ``"closed"``, the first
-        vertex is reused as last vertex and an additional ``distances`` value
-        has to be specified. If ``"clamped"``, endpoint tangents are set to
-        ensure the spline passes through the start and end points without deviation.
+        Start/end conditions for each LineString, defaults to ``clamped``.
+        If ``closed``, the first vertex is reused as last vertex and an
+        additional ``distances`` value has to be specified. If ``clamped``,
+        endpoint tangents are set to ensure the spline passes through the
+        start and end points without deviation.
     tolerance : float, optional
         Tolerance for uniform spacing, by default 1e-6.
     max_iterations : int, optional
