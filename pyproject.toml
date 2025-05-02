@@ -144,6 +144,8 @@ lint.select = [
 ]
 
 lint.ignore = [
+  # add strict to zip
+  "B905",
   "D103",
   "D105",
   "E501",
