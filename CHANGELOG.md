@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- In `smooth_linestrings`, if the input was a mix of `LineString` and
+    `LinearRing` the output was either a `LineString` or a `LinearRing`
+    depending on the type of the first input. Now, the output is correctly
+    is a mix of `LineString` and `LinearRing` depending on the type of each
+    element in the input.
+
+### Changed
+
+- Enforce valid polygon generation in `smooth_polygon` using
+    `shapely.make_valid` function.
+
 ## [0.3.1] - 2025-04-16
 
 ### Fixed
