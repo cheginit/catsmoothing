@@ -14,7 +14,7 @@ from catsmoothing._catsmoothing import smooth_linestrings as _smooth_rs
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-    from shapely import LinearRing, LineString, MultiPolygon, Polygon
+    from shapely import LineString, MultiPolygon, Polygon
 
     FloatArray = NDArray[np.float64]
     BCType = Literal["natural", "closed", "clamped"]
@@ -175,30 +175,6 @@ def smooth_linestrings(
 
 
 @overload
-def smooth_linestrings(  # pyright: ignore[reportOverlappingOverload]
-    lines: LinearRing,
-    distances: float | None = None,
-    n_pts: int | None = None,
-    gaussian_sigmas: float | None = None,
-    bc_types: BCType | None = None,
-    tolerance: float = 1e-6,
-    max_iterations: int = 100,
-) -> LinearRing: ...
-
-
-@overload
-def smooth_linestrings(
-    lines: list[LinearRing],
-    distances: list[float] | None = None,
-    n_pts: list[int] | None = None,
-    gaussian_sigmas: list[float] | None = None,
-    bc_types: list[BCType] | None = None,
-    tolerance: float = 1e-6,
-    max_iterations: int = 100,
-) -> list[LinearRing]: ...
-
-
-@overload
 def smooth_linestrings(
     lines: list[LineString],
     distances: list[float] | None = None,
@@ -211,14 +187,14 @@ def smooth_linestrings(
 
 
 def smooth_linestrings(
-    lines: LineString | LinearRing | list[LineString] | list[LinearRing],
+    lines: LineString | list[LineString],
     distances: float | list[float] | None = None,
     n_pts: int | list[int] | None = None,
     gaussian_sigmas: float | list[float] | None = None,
     bc_types: BCType | list[BCType] | None = None,
     tolerance: float = 1e-6,
     max_iterations: int = 100,
-) -> LineString | LinearRing | list[LineString] | list[LinearRing]:
+) -> LineString | list[LineString]:
     """Smooth LineStrings using Centripetal Catmull-Rom splines and uniform spacing.
 
     Parameters
@@ -251,8 +227,9 @@ def smooth_linestrings(
         Fitted CatmullRom curve as either a LineString.
     """
     lines = np.atleast_1d(lines)  # pyright: ignore[reportCallIssue,reportArgumentType]
-    if np.any(~np.isin(shapely.get_type_id(lines), [1, 2])):
-        raise TypeError("`lines` must be a list shapely.LineString or shapely.LinearRing")
+    geo_types = shapely.get_type_id(lines)
+    if not np.all(np.isin(geo_types, [1, 2])):
+        raise TypeError("`lines` must be a list LineString or LinearRing")
 
     smoothed = _smooth_rs(
         [shapely.get_coordinates(line) for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
@@ -263,11 +240,12 @@ def smooth_linestrings(
         tolerance,
         max_iterations,
     )
-    geom_type = shapely.get_type_id(lines[0])  # pyright: ignore[reportIndexIssue]
-    if geom_type == 1:
-        smoothed = [shapely.LineString(line) for line in smoothed]
-    else:
-        smoothed = [shapely.LinearRing(line) for line in smoothed]
+
+    to_geometry = (
+        shapely.LineString if t == 1 else shapely.LinearRing
+        for t in geo_types  # pyright: ignore[reportGeneralTypeIssues]
+    )
+    smoothed = [func(line) for line, func in zip(smoothed, to_geometry)]
     if len(smoothed) == 1:
         return smoothed[0]
     return smoothed
@@ -275,20 +253,20 @@ def smooth_linestrings(
 
 @overload
 def linestrings_tangent_angles(
-    lines: list[LineString] | list[LinearRing],
+    lines: list[LineString],
     gaussian_sigmas: list[float] | None = None,
 ) -> list[FloatArray]: ...
 
 
 @overload
 def linestrings_tangent_angles(
-    lines: LineString | LinearRing,
+    lines: LineString,
     gaussian_sigmas: float | None = None,
 ) -> FloatArray: ...
 
 
 def linestrings_tangent_angles(
-    lines: LineString | LinearRing | list[LineString] | list[LinearRing],
+    lines: LineString | list[LineString],
     gaussian_sigmas: float | list[float] | None = None,
 ) -> FloatArray | list[FloatArray]:
     """Compute tangent angles for a line.
@@ -342,7 +320,8 @@ def _poly_smooth(
         tolerance,
         max_iterations,
     )
-    return shapely.Polygon(exterior, [interiors] if n_holes == 1 else interiors)
+    poly = shapely.Polygon(exterior, [interiors] if n_holes == 1 else interiors)
+    return shapely.make_valid(poly)  # pyright: ignore[reportReturnType]
 
 
 def smooth_polygon(
@@ -378,7 +357,7 @@ def smooth_polygon(
     shapely.Polygon or shapely.MultiPolygon
         Smoothed (Multi)Polygon.
     """
-    if not isinstance(polygon, shapely.Polygon | shapely.MultiPolygon):
+    if shapely.get_type_id(polygon) not in (3, 6):
         raise TypeError("`polygon` must be a shapely.Polygon or shapely.MultiPolygon")
 
     if isinstance(polygon, shapely.Polygon):
