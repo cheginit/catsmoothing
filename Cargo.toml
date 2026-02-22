@@ -7,7 +7,7 @@ license = "MIT"
 description = "Smoothing Shapely geometries using Catmull-Rom spline"
 readme = "README.md"
 edition = "2021"
-include = ["/src", "/catsmoothing", "/LICENSE", "pyproject.toml", "Cargo.toml", "Cargo.lock"]
+include = ["/src", "/catsmoothing", "/LICENSE", "/AUTHORS.md", "pyproject.toml", "Cargo.toml", "Cargo.lock"]
 
 [lib]
 name = "catsmoothing"
