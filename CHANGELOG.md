@@ -13,6 +13,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+## [0.4.1] - 2026-02-22
+
+### Fixed
+
+- Include `AUTHORS.md` in the sdist by adding it to the `Cargo.toml` `include` list.
+- Fix `mkdocstrings` configuration by renaming `import` to `inventories` for
+    compatibility with `mkdocstrings-python` 2.0.
+- Fix `mkdocstrings` directive in `docs/reference.md`.
+
 ## [0.4.0] - 2026-02-21
 
 This release adds Python 3.14 support and brings significant improvements to both the
