@@ -7,14 +7,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.4.0] - 2026-02-21
 
-This release adds Python 3.14 support and brings significant improvements to both
-the Rust core and the Python API. Key highlights include a corrected second derivative
+This release adds Python 3.14 support and brings significant improvements to both the
+Rust core and the Python API. Key highlights include a corrected second derivative
 formula, proper handling of mixed `LineString`/`LinearRing` inputs, and better error
 handling by returning `Result` instead of panicking. On the Rust side, two crate
 dependencies (`lazy_static` and `num_cpus`) have been removed in favor of standard
-library alternatives, and all major dependencies have been bumped. The Python API
-gains `__repr__` and `__slots__` on `CatmullRom`, along with cleaner data passing
-to Rust by using plain lists instead of `numpy` array intermediaries.
+library alternatives, and all major dependencies have been bumped. The Python API gains
+`__repr__` and `__slots__` on `CatmullRom`, along with cleaner data passing to Rust by
+using plain lists instead of `numpy` array intermediaries.
 
 ### Added
 
