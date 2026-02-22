@@ -89,4 +89,4 @@ repos:
     - mdformat-config
     - mdformat-toc
     args: [--wrap, '88']
-    exclude: ^docs/reference/
+    exclude: ^docs/reference.md
