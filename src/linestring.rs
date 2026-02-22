@@ -15,7 +15,7 @@ pub fn line_tangents(
     )?;
 
     // Evaluate first derivative (n = 1) to obtain tangent vectors
-    let tangent_vectors = spline.evaluate(&spline.grid, 1);
+    let tangent_vectors = spline.evaluate(&spline.grid, 1)?;
 
     // Convert tangent vectors to angles using atan2(dy, dx)
     let tangent_angles: Vec<f64> = tangent_vectors
@@ -68,8 +68,8 @@ pub fn smooth_linestring(
         n_pts_,
         tolerance.unwrap_or(1e-6),
         max_iterations.unwrap_or(100),
-    );
-    let points = spline.evaluate(&distances, 0);
+    )?;
+    let points = spline.evaluate(&distances, 0)?;
     Ok(points)
 }
 

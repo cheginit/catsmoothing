@@ -18,4 +18,6 @@ pub enum SplineError {
     InvalidSmoothingParameters,
     #[error("Mismatched input lengths")]
     MismatchedInputLengths,
+    #[error("Unsupported derivative order: only 0, 1, and 2 are supported")]
+    UnsupportedDerivativeOrder,
 }

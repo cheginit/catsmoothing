@@ -1,6 +1,6 @@
 [package]
 name = "catsmoothing-python"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Taher Chegini <cheginit@gmail.com>"]
 homepage = "https://github.com/cheginit/catsmoothing"
 license = "MIT"
@@ -15,23 +15,21 @@ crate-type = ["cdylib", "rlib"]
 doc = false
 
 [dependencies]
-thiserror = "*"
-num_cpus = "*"
-rayon = "*"
-lazy_static = "*"
-ndarray = { version = "*", features = ["rayon"] }
+thiserror = "2"
+rayon = "1"
+ndarray = { version = "0.17", features = ["rayon"] }
 
 [dependencies.numpy]
-version = "*"
+version = "0.28"
 optional = true
 
 [dev-dependencies]
-approx = "*"
-rand = { version = "*", features = ["std"] }
-rand_distr = "*"
+approx = "0.5"
+rand = { version = "0.10", features = ["std"] }
+rand_distr = "0.6"
 
 [dependencies.pyo3]
-version = "*"
+version = "0.28"
 features = ["extension-module", "multiple-pymethods"]
 optional = true
 

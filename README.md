@@ -16,11 +16,11 @@
 
 ## Overview
 
-**CatSmoothing** smooths [Shapely](https://shapely.readthedocs.io)
-geometries, `LineString` and `(Multi)Polygon`, using the Catmull-Rom spline algorithm and can compute tangent angles at each vertex of a list of lines.
-The implementation is based on the
-[Splines](https://github.com/AudioSceneDescriptionFormat/splines)
-library, but offers performance improvements and additional features.
+**CatSmoothing** smooths [Shapely](https://shapely.readthedocs.io) geometries,
+`LineString` and `(Multi)Polygon`, using the Catmull-Rom spline algorithm and can
+compute tangent angles at each vertex of a list of lines. The implementation is based on
+the [Splines](https://github.com/AudioSceneDescriptionFormat/splines) library, but
+offers performance improvements and additional features.
 
 You can try CatSmoothing directly in your browser by clicking the Binder badge above.
 
@@ -51,14 +51,14 @@ micromamba install -c conda-forge catsmoothing
 
 ## Quick Start
 
-CatSmoothing provide one class called `CatmullRom` that is general purpose,
-Catmull-Rom spline interpolation class. You can tweak the `alpha` parameter of
-the class to interpolate with different versions of the Catmull-Rom spline
-from 2D/3D vertices of a line and compute n-th derivatives.
-For smoothing geometries, CatSmoothing uses the centripetal Catmull-Rom spline
-algorithm, i.e., `alpha=0.5`. There are two functions that can be used
-for smoothing geometries: `smooth_linestrings` and `smooth_polygon`. There is also
-a function for computing tangent angles (in radians) at each vertex of a line.
+CatSmoothing provide one class called `CatmullRom` that is general purpose, Catmull-Rom
+spline interpolation class. You can tweak the `alpha` parameter of the class to
+interpolate with different versions of the Catmull-Rom spline from 2D/3D vertices of a
+line and compute n-th derivatives. For smoothing geometries, CatSmoothing uses the
+centripetal Catmull-Rom spline algorithm, i.e., `alpha=0.5`. There are two functions
+that can be used for smoothing geometries: `smooth_linestrings` and `smooth_polygon`.
+There is also a function for computing tangent angles (in radians) at each vertex of a
+line.
 
 ### Basic Usage
 
@@ -122,8 +122,11 @@ For more examples, visit the [documentation](https://catsmoothing.readthedocs.io
 
 ## Contributing
 
-We welcome contributions! For guidelines, please refer to the [CONTRIBUTING.md](https://catsmoothing.readthedocs.io/latest/CONTRIBUTING) and [CODE_OF_CONDUCT.md](https://github.com/cheginit/catsmoothing/blob/main/CODE_OF_CONDUCT.md).
+We welcome contributions! For guidelines, please refer to the
+[CONTRIBUTING.md](https://catsmoothing.readthedocs.io/latest/CONTRIBUTING) and
+[CODE_OF_CONDUCT.md](https://github.com/cheginit/catsmoothing/blob/main/CODE_OF_CONDUCT.md).
 
 ## License
 
-CatSmoothing is licensed under the MIT License. See the [LICENSE](https://github.com/cheginit/catsmoothing/blob/main/LICENSE) file for details.
+CatSmoothing is licensed under the MIT License. See the
+[LICENSE](https://github.com/cheginit/catsmoothing/blob/main/LICENSE) file for details.

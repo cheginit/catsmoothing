@@ -2,23 +2,25 @@ use crate::error::SplineError;
 use crate::utils::{are_points_close, interpolate};
 use ndarray::parallel::prelude::*;
 use ndarray::{array, Array1, Array2};
-use num_cpus;
 use rayon::ThreadPoolBuilder;
-use std::sync::Once;
+use std::sync::{LazyLock, Once};
 
-// Rayon initialization (same as nalgebra version)
+// Rayon initialization
 pub fn init_rayon() {
     static INIT_RAYON: Once = Once::new();
     INIT_RAYON.call_once(|| {
+        let n_threads = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
         let _ = ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get_physical())
+            .num_threads(n_threads)
             .build_global();
         // Ignore errors - pool might already be initialized
     });
 }
 
 // Specialized 2D vector type to replace generic Array1
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec2D {
     x: f64,
     y: f64,
@@ -96,14 +98,14 @@ pub enum BoundaryCondition {
 }
 
 // Pre-computed matrix for spline calculations
-lazy_static::lazy_static! {
-    static ref HERMITE_MATRIX: Array2<f64> = array![
+static HERMITE_MATRIX: LazyLock<Array2<f64>> = LazyLock::new(|| {
+    array![
         [2.0, -2.0, 1.0, 1.0],
         [-3.0, 3.0, -2.0, -1.0],
         [0.0, 0.0, 1.0, 0.0],
         [1.0, 0.0, 0.0, 0.0]
-    ];
-}
+    ]
+});
 
 #[derive(Debug)]
 pub struct CatmullRom {
@@ -196,7 +198,7 @@ impl CatmullRom {
 
         // Pre-allocate result vector
         let mut smoothed_vertices = Vec::with_capacity(n_verts);
-        smoothed_vertices.push(vec_vertices[0].clone());
+        smoothed_vertices.push(vec_vertices[0]);
 
         // Only smooth interior points, preserve endpoints
         for i in 1..n_verts - 1 {
@@ -220,14 +222,14 @@ impl CatmullRom {
             smoothed_vertices.push(Vec2D::new(smoothed_x, smoothed_y));
         }
 
-        smoothed_vertices.push(vec_vertices[n_verts - 1].clone());
+        smoothed_vertices.push(vec_vertices[n_verts - 1]);
         smoothed_vertices
     }
 
     fn get_grid(
         grid: Option<Vec<f64>>,
         alpha: Option<f64>,
-        vertices: &Vec<Vec2D>,
+        vertices: &[Vec2D],
     ) -> Result<Vec<f64>, SplineError> {
         if grid.is_none() && alpha.is_none() {
             // Use efficient iterator for uniform grid
@@ -296,8 +298,8 @@ impl CatmullRom {
         if n_verts == 2 {
             let delta = grid[1] - grid[0];
             let tangent = vertices[1].sub(&vertices[0]).scale(1.0 / delta);
-            // Push it twice
-            tangents.push(tangent.clone());
+            // Push it twice (Vec2D is Copy)
+            tangents.push(tangent);
             tangents.push(tangent);
         } else {
             // Index mapping function to handle the closed case efficiently
@@ -342,8 +344,8 @@ impl CatmullRom {
                     .add(&v0.scale(delta_1))
                     .scale(delta_sum_inv);
 
-                // Push tangent twice
-                tangents.push(tangent.clone());
+                // Push tangent twice (Vec2D is Copy)
+                tangents.push(tangent);
                 tangents.push(tangent);
             }
         }
@@ -371,9 +373,13 @@ impl CatmullRom {
                 &tangents[tangents.len() - 1],
             )?;
 
-            // Insert at beginning and push at end
-            tangents.insert(0, start_tangent);
-            tangents.push(end_tangent);
+            // Build ordered result: [start, ...interior..., end]
+            // Avoids O(n) shift from insert(0, ...)
+            let mut result = Vec::with_capacity(expected_tangents);
+            result.push(start_tangent);
+            result.extend_from_slice(&tangents);
+            result.push(end_tangent);
+            tangents = result;
         }
 
         // Final validation
@@ -410,9 +416,9 @@ impl CatmullRom {
     }
 
     fn get_segments(
-        vertices: &Vec<Vec2D>,
+        vertices: &[Vec2D],
         grid: &[f64],
-        tangents: &Vec<Vec2D>,
+        tangents: &[Vec2D],
     ) -> Result<Vec<Array2<f64>>, SplineError> {
         let n_segments = vertices.len() - 1;
 
@@ -447,15 +453,15 @@ impl CatmullRom {
         Ok(segments)
     }
 
-    pub fn evaluate(&self, distances: &[f64], n: usize) -> Vec<[f64; 2]> {
+    pub fn evaluate(&self, distances: &[f64], n: usize) -> Result<Vec<[f64; 2]>, SplineError> {
         if distances.is_empty() {
-            return Vec::new();
+            return Ok(Vec::new());
         }
 
         let grid_max_idx = self.grid.len().saturating_sub(2);
 
         // Pre-compute t-vector functions for different derivative orders
-        let t_vector_fn = match n {
+        let t_vector_fn: fn(f64) -> [f64; 4] = match n {
             0 => |t: f64| -> [f64; 4] {
                 let t2 = t * t;
                 let t3 = t2 * t;
@@ -465,12 +471,12 @@ impl CatmullRom {
                 let t2 = t * t;
                 [3.0 * t2, 2.0 * t, 1.0, 0.0]
             },
-            2 => |_: f64| -> [f64; 4] { [6.0, 2.0, 0.0, 0.0] },
-            _ => panic!("Unsupported derivative order"),
+            2 => |t: f64| -> [f64; 4] { [6.0 * t, 2.0, 0.0, 0.0] },
+            _ => return Err(SplineError::UnsupportedDerivativeOrder),
         };
 
         // Use par_iter for parallel execution with thread-safe references
-        distances
+        let points: Vec<[f64; 2]> = distances
             .par_iter()
             .map(|&distance| {
                 // Find appropriate spline segment with boundary handling
@@ -480,15 +486,10 @@ impl CatmullRom {
                     grid_max_idx
                 } else {
                     // Binary search for segment containing the distance
-                    match self.grid.binary_search_by(|&x| {
-                        if x <= distance {
-                            std::cmp::Ordering::Less
-                        } else {
-                            std::cmp::Ordering::Greater
-                        }
-                    }) {
-                        Ok(i) | Err(i) => i.saturating_sub(1).min(grid_max_idx),
-                    }
+                    self.grid
+                        .partition_point(|&x| x <= distance)
+                        .saturating_sub(1)
+                        .min(grid_max_idx)
                 };
 
                 let d0 = self.grid[idx];
@@ -512,7 +513,9 @@ impl CatmullRom {
 
                 [x, y]
             })
-            .collect()
+            .collect();
+
+        Ok(points)
     }
 
     pub fn uniform_distances(
@@ -520,9 +523,9 @@ impl CatmullRom {
         n_pts: usize,
         tolerance: f64,
         max_iterations: usize,
-    ) -> Vec<f64> {
+    ) -> Result<Vec<f64>, SplineError> {
         if n_pts < 2 {
-            return vec![self.grid[0]];
+            return Ok(vec![self.grid[0]]);
         }
 
         // Initial uniform parameterization
@@ -541,7 +544,7 @@ impl CatmullRom {
 
         // Reparameterize to achieve uniform arc length
         for _ in 0..max_iterations {
-            let points = self.evaluate(&dis_arr, 0);
+            let points = self.evaluate(&dis_arr, 0)?;
 
             arc_lengths.clear();
             arc_lengths.push(0.0);
@@ -556,7 +559,7 @@ impl CatmullRom {
 
             let total_length = cumsum;
             if total_length < tolerance {
-                return dis_arr;
+                return Ok(dis_arr);
             }
 
             uniform_lengths.clear();
@@ -579,6 +582,6 @@ impl CatmullRom {
             dis_arr = interpolate(&uniform_lengths, &arc_lengths, &dis_arr);
         }
 
-        dis_arr
+        Ok(dis_arr)
     }
 }

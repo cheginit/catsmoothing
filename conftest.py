@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 @pytest.fixture(autouse=True)
 def add_doctest_imports(doctest_namespace: dict[str, object]) -> None:
     """Add catsmoothing namespace for doctest."""
-    import catsmoothing as cs
+    import catsmoothing as cs  # noqa: PLC0415
 
     doctest_namespace["catsmoothing"] = cs
 

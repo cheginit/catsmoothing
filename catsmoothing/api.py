@@ -31,13 +31,7 @@ def _to_array(arr: Any, dtype: Literal["f8"]) -> NDArray[np.float64]: ...
 def _to_array(arr: Any, dtype: Literal["i8"]) -> NDArray[np.int64]: ...
 
 
-@overload
-def _to_array(arr: Any, dtype: Literal["U"]) -> NDArray[np.str_]: ...
-
-
-def _to_array(
-    arr: Any, dtype: Literal["f8", "i8", "U"]
-) -> NDArray[np.float64] | NDArray[np.int64] | NDArray[np.str_]:
+def _to_array(arr: Any, dtype: Literal["f8", "i8"]) -> NDArray[np.float64] | NDArray[np.int64]:
     """Convert input to numpy array with specified dtype."""
     return np.asarray(np.atleast_1d(arr), dtype=dtype)
 
@@ -81,6 +75,8 @@ class CatmullRom:
         in Computer Aided Geometric Design, 1974.
         [DOI: 10.1016/B978-0-12-079050-0.50020-5](https://doi.org/10.1016/B978-0-12-079050-0.50020-5)
     """
+
+    __slots__ = ("_is_frozen", "_spline", "alpha", "bc_type", "gaussian_sigma", "grid")
 
     def __init__(
         self,
@@ -161,6 +157,16 @@ class CatmullRom:
             )
         object.__delattr__(self, item)
 
+    def __repr__(self) -> str:
+        """Return a string representation of the CatmullRom spline."""
+        n_vertices = len(self.grid)
+        parts = [f"n_vertices={n_vertices}", f"bc_type='{self.bc_type}'"]
+        if self.alpha is not None:
+            parts.append(f"alpha={self.alpha}")
+        if self.gaussian_sigma is not None:
+            parts.append(f"gaussian_sigma={self.gaussian_sigma}")
+        return f"CatmullRom({', '.join(parts)})"
+
 
 @overload
 def smooth_linestrings(
@@ -231,12 +237,16 @@ def smooth_linestrings(
     if not np.all(np.isin(geo_types, [1, 2])):
         raise TypeError("`lines` must be a list LineString or LinearRing")
 
+    bc_list: list[str] | None = None
+    if bc_types is not None:
+        bc_list = [bc_types] if isinstance(bc_types, str) else list(bc_types)
+
     smoothed = _smooth_rs(
         [shapely.get_coordinates(line) for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
         _to_array(distances, "f8") if distances is not None else None,
         _to_array(n_pts, "i8") if n_pts is not None else None,
         _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
-        _to_array(bc_types, "U") if bc_types is not None else None,
+        bc_list,
         tolerance,
         max_iterations,
     )
@@ -287,9 +297,17 @@ def linestrings_tangent_angles(
     lines = np.atleast_1d(lines)  # pyright: ignore[reportCallIssue,reportArgumentType]
     if np.any(~np.isin(shapely.get_type_id(lines), [1, 2])):
         raise TypeError("`lines` must be a list shapely.LineString")
+
+    gs_list: list[float] | None = None
+    if gaussian_sigmas is not None:
+        if isinstance(gaussian_sigmas, (int, float)):
+            gs_list = [float(gaussian_sigmas)]
+        else:
+            gs_list = [float(s) for s in gaussian_sigmas]
+
     angles = _tangent_angles_rs(
         [shapely.get_coordinates(line) for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
-        _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
+        gs_list,
     )
     if len(angles) == 1:
         return np.asarray(angles[0])
@@ -312,7 +330,7 @@ def _poly_smooth(
     if n_holes == 0:
         return shapely.Polygon(exterior)
     interiors = smooth_linestrings(  # pyright: ignore[reportCallIssue]
-        polygon.interiors,  # pyright: ignore[reportArgumentType]
+        list(polygon.interiors),  # pyright: ignore[reportArgumentType]
         [distance] * n_holes if distance is not None else None,
         [n_pts] * n_holes if n_pts is not None else None,
         [gaussian_sigma] * n_holes if gaussian_sigma is not None else None,
@@ -346,7 +364,7 @@ def smooth_polygon(
         either ``distance`` or ``n_pts``.
     gaussian_sigma : float, optional
         Standard deviation for Gaussian kernel, by default ``None``,
-        i.e., no smoothing. Note that if specified, ``scipy`` is required.
+        i.e., no smoothing.
     tolerance : float, optional
         Tolerance for uniform spacing, by default 1e-6.
     max_iterations : int, optional

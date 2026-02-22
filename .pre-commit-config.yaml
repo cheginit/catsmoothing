@@ -1,6 +1,6 @@
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
+  rev: v6.0.0
   hooks:
   - id: check-added-large-files
     args: [--maxkb=50000]
@@ -28,13 +28,13 @@ repos:
     exclude: \.(html|svg)$
 
 - repo: https://github.com/bwhmather/ssort
-  rev: 0.14.0
+  rev: 0.16.0
   hooks:
   - id: ssort
     name: Sort top level statements with ssort
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.11.13
+  rev: v0.15.2
   hooks:
   - id: ruff
     name: Linting with Ruff
@@ -45,7 +45,7 @@ repos:
     types_or: [python, jupyter]
 
 - repo: https://github.com/PyCQA/doc8
-  rev: v1.1.2
+  rev: v2.0.0
   hooks:
   - id: doc8
     name: Check documentation formats with doc8
@@ -60,32 +60,33 @@ repos:
     - tomli
 
 - repo: https://github.com/tox-dev/pyproject-fmt
-  rev: v2.6.0
+  rev: v2.16.1
   hooks:
   - id: pyproject-fmt
     name: Apply a consistent format to pyproject.toml
 
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.14.0
+  rev: v2.16.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix, --indent, '2']
 
 - repo: https://github.com/rhysd/actionlint
-  rev: v1.7.7
+  rev: v1.7.11
   hooks:
   - id: actionlint
     files: .github/workflows/
     args: [-ignore, SC1090, -ignore, SC2046, -ignore, SC2086, -ignore, SC2129, -ignore, SC2155]
 
 - repo: https://github.com/executablebooks/mdformat
-  rev: 0.7.22
+  rev: 1.0.0
   hooks:
   - id: mdformat
     additional_dependencies:
+    - mdformat-mkdocs
     - mdformat-ruff
     - ruff
     - mdformat-config
-    - mdformat-mkdocs
     - mdformat-toc
-    - mdformat-admon
+    args: [--wrap, '88']
+    exclude: ^docs/reference/

@@ -50,17 +50,13 @@ fn linestrings_tangent_angles(
 ) -> PyResult<Vec<Py<PyArray1<f64>>>> {
     let n_lines = vertices.len();
     let gs = gaussian_sigmas.unwrap_or_else(|| vec![None; n_lines]);
+    validate_array_length(gs.len(), n_lines, "gaussian_sigmas")?;
 
     let mut results = Vec::with_capacity(n_lines);
     for (line_arr, sigma) in vertices.into_iter().zip(gs.into_iter()) {
         let line_vec = array2_to_vec(line_arr.as_array());
 
-        let tangents =
-            linestring::lines_tangents(vec![line_vec], vec![sigma]).map_err(PyErr::from)?;
-
-        let angles = tangents.into_iter().next().ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>("No tangent data returned")
-        })?;
+        let angles = linestring::line_tangents(line_vec, sigma).map_err(PyErr::from)?;
 
         results.push(Array1::from(angles).into_pyarray(py).to_owned().into());
     }
@@ -234,19 +230,19 @@ impl CatmullRomWrapper {
         py: Python,
         distances: PyReadonlyArray1<f64>,
         n: usize,
-    ) -> Py<PyArray2<f64>> {
+    ) -> PyResult<Py<PyArray2<f64>>> {
         let array_view = distances.as_array();
         let slice = array_view.as_slice().unwrap();
 
-        let pts = self.inner.evaluate(slice, n);
+        let pts = self.inner.evaluate(slice, n).map_err(PyErr::from)?;
         let (n_pts, flat) = points_to_flat(pts);
 
         // Convert to Python array
-        Array2::from_shape_vec((n_pts, 2), flat)
+        Ok(Array2::from_shape_vec((n_pts, 2), flat)
             .unwrap()
             .into_pyarray(py)
             .to_owned()
-            .into()
+            .into())
     }
 
     fn uniform_distances(
@@ -255,12 +251,12 @@ impl CatmullRomWrapper {
         n_pts: usize,
         tolerance: f64,
         max_iterations: usize,
-    ) -> Py<PyArray1<f64>> {
-        self.inner
+    ) -> PyResult<Py<PyArray1<f64>>> {
+        let distances = self
+            .inner
             .uniform_distances(n_pts, tolerance, max_iterations)
-            .into_pyarray(py)
-            .to_owned()
-            .into()
+            .map_err(PyErr::from)?;
+        Ok(distances.into_pyarray(py).to_owned().into())
     }
 }
 
