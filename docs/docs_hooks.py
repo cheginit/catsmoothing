@@ -10,35 +10,22 @@ from mkdocs.structure.files import File, Files
 if TYPE_CHECKING:
     from mkdocs.config.defaults import MkDocsConfig
 
-changelog = Path(__file__).parent.parent / "CHANGELOG.md"
-contributing = Path(__file__).parent.parent / "CONTRIBUTING.md"
-readme = Path(__file__).parent.parent / "README.md"
+_ROOT = Path(__file__).parent.parent
+
+changelog = _ROOT / "CHANGELOG.md"
+contributing = _ROOT / "CONTRIBUTING.md"
+readme = _ROOT / "README.md"
 
 
-def on_files(files: Files, config: MkDocsConfig):
-    """Copy the schema to the site."""
-    files.append(
-        File(
-            path=changelog.name,
-            src_dir=changelog.parent,
-            dest_dir=str(config.site_dir),
-            use_directory_urls=config.use_directory_urls,
+def on_files(files: Files, config: MkDocsConfig) -> Files:
+    """Add root-level markdown files to the documentation site."""
+    for path in (changelog, contributing, readme):
+        files.append(
+            File(
+                path=path.name,
+                src_dir=str(path.parent),
+                dest_dir=str(config.site_dir),
+                use_directory_urls=config.use_directory_urls,
+            )
         )
-    )
-    files.append(
-        File(
-            path=contributing.name,
-            src_dir=contributing.parent,
-            dest_dir=str(config.site_dir),
-            use_directory_urls=config.use_directory_urls,
-        )
-    )
-    files.append(
-        File(
-            path=readme.name,
-            src_dir=readme.parent,
-            dest_dir=str(config.site_dir),
-            use_directory_urls=config.use_directory_urls,
-        )
-    )
     return files

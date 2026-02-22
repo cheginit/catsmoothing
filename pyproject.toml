@@ -41,7 +41,7 @@ optional-dependencies.docs = [
   "black",
   "mkdocs",
   "mkdocs-jupyter",
-  "mkdocs-material",
+  "mkdocs-materialx",
   "mkdocstrings-python",
 ]
 optional-dependencies.lint = [

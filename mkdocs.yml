@@ -2,7 +2,7 @@ site_name: CatSmoothing
 site_url: https://catsmoothing.readthedocs.io
 
 theme:
-  name: material
+  name: materialx
   custom_dir: docs/overrides
   favicon: assets/logo.png
   logo: assets/logo.png
@@ -117,7 +117,7 @@ plugins:
     default_handler: python
     handlers:
       python:
-        import:
+        inventories:
         - https://docs.python.org/3/objects.inv
         - https://numpy.org/doc/stable/objects.inv
         - https://docs.scipy.org/doc/scipy/objects.inv
