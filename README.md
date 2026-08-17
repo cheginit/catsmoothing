@@ -1,3 +1,5 @@
+
+
 ![CatSmoothing](https://raw.githubusercontent.com/cheginit/catsmoothing/refs/heads/main/docs/assets/logo_small.png)
 
 # CatSmoothing: Smoothing Shapely Geometries with Catmull-Rom Splines
@@ -65,6 +67,7 @@ line.
 For fitting a Catmull-Rom spline to a line, we can use the following code:
 
 ```python
+import numpy as np
 from catsmoothing import CatmullRom
 
 
