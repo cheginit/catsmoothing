@@ -90,6 +90,14 @@ impl Vec2D {
     }
 }
 
+/// Reflects `k` into `0..n` about both ends without repeating the edge sample, for any
+/// kernel reach (`... c b | a b c d | c b a ...`). Requires `n >= 2`.
+fn mirror_index(k: isize, n: usize) -> usize {
+    let period = 2 * (n as isize - 1);
+    let m = k.rem_euclid(period);
+    (if m >= n as isize { period - m } else { m }) as usize
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum BoundaryCondition {
     Natural,
@@ -206,15 +214,7 @@ impl CatmullRom {
             let mut smoothed_y = 0.0;
 
             for j in 0..kernel_size {
-                // Mirror boundary handling for convolution
-                let idx = if (i as isize + j as isize - center as isize) < 0 {
-                    (center - i - j) % n_verts
-                } else if i + j - center >= n_verts {
-                    (2 * (n_verts - 1) - (i + j - center)) % n_verts
-                } else {
-                    i + j - center
-                };
-
+                let idx = mirror_index(i as isize + j as isize - center as isize, n_verts);
                 smoothed_x += vec_vertices[idx].x * kernel[j];
                 smoothed_y += vec_vertices[idx].y * kernel[j];
             }
