@@ -23,6 +23,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `CatmullRom.evaluate` with `n=1` or `n=2` now returns derivatives with respect to the
     curve parameter. They were scaled by each segment's grid step (and its square), so
     magnitudes change on any non-unit grid. Tangent angles are unaffected.
+- `CatmullRom.uniform_distances` starts at the first grid value; it assumed a grid
+    starting at zero.
 
 ## [0.4.1] - 2026-02-22
 

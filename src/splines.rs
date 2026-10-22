@@ -476,13 +476,14 @@ impl CatmullRom {
         }
 
         // Initial uniform parameterization
-        let grid_end = self.grid[self.grid.len() - 1];
+        let grid_start = self.grid[0];
+        let grid_span = self.grid[self.grid.len() - 1] - grid_start;
         let inv_n_pts_minus_1 = 1.0 / ((n_pts - 1) as f64);
 
         // Pre-allocate with capacity
         let mut dis_arr = Vec::with_capacity(n_pts);
         for i in 0..n_pts {
-            dis_arr.push(grid_end * (i as f64) * inv_n_pts_minus_1);
+            dis_arr.push(grid_start + grid_span * (i as f64) * inv_n_pts_minus_1);
         }
 
         // Pre-allocate these vectors to reuse across iterations
