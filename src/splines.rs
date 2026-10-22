@@ -153,7 +153,6 @@ impl CatmullRom {
             vertices
         };
 
-        // Use specialized Vec2D instead of Array1
         let vertices_vec: Vec<Vec2D> = if let Some(sigma) = gaussian_sigma {
             Self::gaussian_smoothing(&vertices, sigma)
         } else {
@@ -408,7 +407,7 @@ impl CatmullRom {
         if n_pts < 2 {
             return Ok(vec![self.grid[0]]);
         }
-        if !(tolerance > 0.0) {
+        if tolerance.is_nan() || tolerance <= 0.0 {
             return Err(SplineError::InvalidTolerance);
         }
 

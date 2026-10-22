@@ -1,4 +1,3 @@
-// utils.rs
 pub(crate) fn are_points_close(a: &[f64; 2], b: &[f64; 2]) -> bool {
     const RTOL: f64 = 1e-5;
     const ATOL: f64 = 1e-8;
