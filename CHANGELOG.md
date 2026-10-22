@@ -25,6 +25,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     magnitudes change on any non-unit grid. Tangent angles are unaffected.
 - `CatmullRom.uniform_distances` starts at the first grid value; it assumed a grid
     starting at zero.
+- Gaussian smoothing mirrors correctly when the kernel (`4 * gaussian_sigma` vertices on
+    each side) is wider than the line. Debug builds panicked and release builds read
+    wrapped indices.
 
 ## [0.4.1] - 2026-02-22
 

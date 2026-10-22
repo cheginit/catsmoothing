@@ -574,3 +574,30 @@ fn test_uniform_distances_respects_grid_origin() {
     let distances = spline.uniform_distances(3, 1e-9, 100).unwrap();
     assert_close(&distances, &[10.0, 11.0, 12.0], 1e-9);
 }
+
+#[test]
+fn test_gaussian_smoothing_kernel_wider_than_line() {
+    // sigma = 2 reaches 8 vertices on each side of a 3-vertex line, so the mirror must repeat.
+    let sigma = 2.0_f64;
+    let spline = CatmullRom::new(
+        vec![[0.0, 0.0], [1.0, 10.0], [2.0, 0.0]],
+        None,
+        Some(0.5),
+        BoundaryCondition::Natural,
+        Some(sigma),
+    )
+    .unwrap();
+    let middle = spline.evaluate(&[spline.grid[1]], 0).unwrap()[0];
+
+    // Reference: mirror sequence for index 1 + k with period 4 visits x = [0, 1, 2, 1].
+    let radius = (4.0 * sigma).ceil() as i64;
+    let (mut x, mut y, mut total) = (0.0, 0.0, 0.0);
+    for k in -radius..=radius {
+        let w = (-((k * k) as f64) / (2.0 * sigma * sigma)).exp();
+        let m = (1 + k).rem_euclid(4);
+        x += w * [0.0, 1.0, 2.0, 1.0][m as usize];
+        y += w * [0.0, 10.0, 0.0, 10.0][m as usize];
+        total += w;
+    }
+    assert_close(&middle, &[x / total, y / total], 1e-12);
+}
