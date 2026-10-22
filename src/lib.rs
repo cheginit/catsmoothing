@@ -1,3 +1,6 @@
+//! Catmull-Rom spline smoothing of 2D polylines and polygon rings: the Rust core of the
+//! `catsmoothing` Python package.
+
 mod error;
 mod linestring;
 #[cfg(feature = "python")]

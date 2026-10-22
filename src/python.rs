@@ -202,7 +202,7 @@ impl CatmullRomWrapper {
 
     #[getter]
     fn grid(&self, py: Python) -> Py<PyArray1<f64>> {
-        self.inner.grid.clone().into_pyarray(py).unbind()
+        self.inner.grid().to_vec().into_pyarray(py).unbind()
     }
 
     #[pyo3(signature = (distances, n))]

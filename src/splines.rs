@@ -4,9 +4,8 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::ops::{Add, Mul, Sub};
 use std::str::FromStr;
 
-// Specialized 2D vector type to replace generic Array1
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Vec2D {
+pub(crate) struct Vec2D {
     x: f64,
     y: f64,
 }
@@ -63,10 +62,14 @@ fn mirror_index(k: isize, n: usize) -> usize {
     (if m >= n as isize { period - m } else { m }) as usize
 }
 
+/// End conditions of a spline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoundaryCondition {
+    /// Zero second derivative at both ends.
     Natural,
+    /// Periodic: the curve returns to its first vertex with matching tangents.
     Closed,
+    /// End tangents follow the first and last chords.
     Clamped,
 }
 
@@ -96,16 +99,25 @@ struct Segment {
     d: Vec2D,
 }
 
+/// A cubic Catmull-Rom spline through 2D vertices, one Hermite segment per vertex pair.
 #[derive(Debug)]
 pub struct CatmullRom {
-    pub vertices: Vec<Vec2D>,
-    pub grid: Vec<f64>,
+    grid: Vec<f64>,
     segments: Vec<Segment>,
-    pub alpha: Option<f64>,
-    pub bc_type: BoundaryCondition,
 }
 
 impl CatmullRom {
+    /// Fits a spline through `vertices`.
+    ///
+    /// `alpha` builds the grid from chord lengths raised to `alpha` (`0.5` is centripetal,
+    /// `0` uniform, `1` chordal) and takes precedence over `grid`; with neither, the grid is
+    /// `0, 1, 2, ...`. `gaussian_sigma` smooths the vertices first, keeping the end vertices.
+    /// Closed curves append the first vertex unless the last vertex already matches it.
+    ///
+    /// # Errors
+    ///
+    /// Fails for fewer than two vertices, nonfinite inputs, a grid that is not strictly
+    /// increasing or does not match the vertex count, or a negative `gaussian_sigma`.
     pub fn new(
         vertices: Vec<[f64; 2]>,
         grid: Option<Vec<f64>>,
@@ -152,13 +164,12 @@ impl CatmullRom {
         let tangents = Self::get_tangents(&vertices_vec, &grid, bc_type);
         let segments = Self::get_segments(&vertices_vec, &grid, &tangents);
 
-        Ok(Self {
-            vertices: vertices_vec,
-            grid,
-            segments,
-            alpha,
-            bc_type,
-        })
+        Ok(Self { grid, segments })
+    }
+
+    /// Parameter value at each vertex.
+    pub fn grid(&self) -> &[f64] {
+        &self.grid
     }
 
     fn gaussian_smoothing(vertices: &[[f64; 2]], sigma: f64) -> Vec<Vec2D> {
@@ -344,6 +355,12 @@ impl CatmullRom {
             .collect()
     }
 
+    /// Evaluates the curve, or its `n`-th derivative with respect to the grid parameter, at
+    /// each distance. Distances outside the grid extend the first or last segment.
+    ///
+    /// # Errors
+    ///
+    /// Fails when `n` is greater than 2.
     pub fn evaluate(&self, distances: &[f64], n: usize) -> Result<Vec<[f64; 2]>, SplineError> {
         if n > 2 {
             return Err(SplineError::UnsupportedDerivativeOrder);
@@ -376,6 +393,12 @@ impl CatmullRom {
         [p.x, p.y]
     }
 
+    /// Returns `n_pts` grid parameters whose evaluated points are evenly spaced along the
+    /// curve, or the first grid value when `n_pts` is below 2.
+    ///
+    /// # Errors
+    ///
+    /// Fails when `tolerance` is not positive.
     pub fn uniform_distances(
         &self,
         n_pts: usize,
