@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time
 from itertools import product
 from typing import Literal
 
@@ -228,6 +230,28 @@ def test_two_vertex_line(bc_type: Literal["natural", "clamped"]) -> None:
     assert_close(shapely.get_coordinates(result), expected, 1e-12)
     angles = cs.linestrings_tangent_angles(line)
     assert_close(angles, np.full(2, np.arctan2(1, 2)), 1e-12)
+
+
+def test_evaluate_releases_gil() -> None:
+    s = CatmullRom([(0, 0), (1, 1), (2, 0), (3, 1)], alpha=0.5)
+    distances = np.linspace(0, s.grid[-1], 5_000_000)
+    ticks: list[float] = []
+    stop = threading.Event()
+
+    def heartbeat() -> None:
+        while not stop.is_set():
+            ticks.append(time.perf_counter())
+
+    thread = threading.Thread(target=heartbeat)
+    thread.start()
+    start = time.perf_counter()
+    s.evaluate(distances)
+    end = time.perf_counter()
+    stop.set()
+    thread.join()
+    # Only the middle of the call counts; GIL hand-offs blur both edges.
+    lo, hi = start + 0.25 * (end - start), start + 0.75 * (end - start)
+    assert any(lo <= t <= hi for t in ticks)
 
 
 @pytest.fixture

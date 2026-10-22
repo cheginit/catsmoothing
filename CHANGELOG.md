@@ -18,6 +18,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Spline segments store their cubic coefficients inline and evaluate with Horner's
     rule, and per-line work runs serially below 4096 points. Building a 2000-vertex
     spline is about 6x faster, and smoothing 2000 lines of 100 vertices about 2x faster.
+- The Python bindings release the GIL while Rust computes, and
+    `linestrings_tangent_angles` processes lines in parallel like `smooth_linestrings`.
 
 ### Fixed
 
