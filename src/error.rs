@@ -20,4 +20,18 @@ pub enum SplineError {
     MismatchedInputLengths,
     #[error("Unsupported derivative order: only 0, 1, and 2 are supported")]
     UnsupportedDerivativeOrder,
+    #[error("Vertices must be finite")]
+    NonFiniteVertices,
+    #[error("Grid must be finite and strictly increasing")]
+    InvalidGrid,
+    #[error("alpha must be finite")]
+    InvalidAlpha,
+    #[error("gaussian_sigma must be finite and non-negative")]
+    InvalidGaussianSigma,
+    #[error("n_pts must be at least 2")]
+    InvalidPointCount,
+    #[error("distance must be finite and positive")]
+    InvalidDistance,
+    #[error("tolerance must be positive")]
+    InvalidTolerance,
 }

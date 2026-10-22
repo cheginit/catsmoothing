@@ -125,6 +125,15 @@ impl CatmullRom {
         if vertices.len() < 2 {
             return Err(SplineError::TooFewVertices);
         }
+        if vertices.iter().flatten().any(|c| !c.is_finite()) {
+            return Err(SplineError::NonFiniteVertices);
+        }
+        if alpha.is_some_and(|a| !a.is_finite()) {
+            return Err(SplineError::InvalidAlpha);
+        }
+        if gaussian_sigma.is_some_and(|s| !(s.is_finite() && s >= 0.0)) {
+            return Err(SplineError::InvalidGaussianSigma);
+        }
 
         let vertices = if matches!(bc_type, BoundaryCondition::Closed) {
             let mut v = vertices;
@@ -251,6 +260,9 @@ impl CatmullRom {
         } else if let Some(grid) = grid {
             if grid.len() != vertices.len() {
                 return Err(SplineError::GridLengthMismatch);
+            }
+            if !(grid.iter().all(|g| g.is_finite()) && grid.windows(2).all(|w| w[0] < w[1])) {
+                return Err(SplineError::InvalidGrid);
             }
             Ok(grid)
         } else {
@@ -398,6 +410,9 @@ impl CatmullRom {
     ) -> Result<Vec<f64>, SplineError> {
         if n_pts < 2 {
             return Ok(vec![self.grid[0]]);
+        }
+        if !(tolerance > 0.0) {
+            return Err(SplineError::InvalidTolerance);
         }
 
         // Initial uniform parameterization

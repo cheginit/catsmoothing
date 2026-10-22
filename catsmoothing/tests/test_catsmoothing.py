@@ -232,6 +232,44 @@ def test_two_vertex_line(bc_type: Literal["natural", "clamped"]) -> None:
     assert_close(angles, np.full(2, np.arctan2(1, 2)), 1e-12)
 
 
+LINE = shapely.LineString([(0, 0), (1, 1), (2, 0), (3, 1)])
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: cs.smooth_linestrings(LINE, n_pts=0),
+        lambda: cs.smooth_linestrings(LINE, n_pts=1),
+        lambda: cs.smooth_linestrings(LINE, n_pts=-1),
+        lambda: cs.smooth_linestrings(LINE, distances=0.0),
+        lambda: cs.smooth_linestrings(LINE, distances=-1.0),
+        lambda: cs.smooth_linestrings(LINE, distances=np.nan),
+        lambda: cs.smooth_linestrings(LINE, n_pts=10, gaussian_sigmas=-1.0),
+        lambda: cs.smooth_linestrings(LINE, n_pts=10, gaussian_sigmas=np.nan),
+        lambda: CatmullRom(np.zeros((3, 1))),
+        lambda: CatmullRom([(0, 0), (1, np.nan), (2, 0)]),
+        lambda: CatmullRom([(0, 0), (1, 1), (2, 0)], grid=[0, 0, 1]),
+        lambda: CatmullRom([(0, 0), (1, 1), (2, 0)], grid=[0, 2, 1]),
+        lambda: CatmullRom([(0, 0), (1, 1), (2, 0)], alpha=np.inf),
+        lambda: CatmullRom([(0, 0), (1, 1), (2, 0)]).uniform_distances(5, tolerance=0),
+    ],
+)
+def test_invalid_inputs_raise_value_error(call) -> None:
+    with pytest.raises(ValueError):  # noqa: PT011
+        call()
+
+
+def test_non_contiguous_arrays() -> None:
+    s = CatmullRom([(0, 0), (1, 1), (2, 0), (3, 1)], alpha=0.5)
+    d = np.linspace(0, s.grid[-1], 10)
+    assert_close(s.evaluate(d[::2]), s.evaluate(np.ascontiguousarray(d[::2])), 0)
+    lines = [LINE, LINE]
+    strided = cs.smooth_linestrings(lines, distances=np.array([0.5, 9.0, 0.5])[::2])
+    contiguous = cs.smooth_linestrings(lines, distances=[0.5, 0.5])
+    for a, b in zip(strided, contiguous):
+        assert a.equals_exact(b, 0)
+
+
 def test_evaluate_releases_gil() -> None:
     s = CatmullRom([(0, 0), (1, 1), (2, 0), (3, 1)], alpha=0.5)
     distances = np.linspace(0, s.grid[-1], 5_000_000)

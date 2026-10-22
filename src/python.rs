@@ -1,8 +1,10 @@
 use crate::{linestring, BoundaryCondition, CatmullRom, SplineError};
 use ndarray::{Array1, Array2, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
+use std::borrow::Cow;
 
 // Convert SplineError into PyErr.
 impl From<SplineError> for PyErr {
@@ -12,8 +14,28 @@ impl From<SplineError> for PyErr {
 }
 
 // Helper: convert a 2D ndarray view (shape (n,2)) into a Vec<[f64; 2]>.
-fn array2_to_vec(line: ArrayView2<f64>) -> Vec<[f64; 2]> {
-    line.outer_iter().map(|row| [row[0], row[1]]).collect()
+fn array2_to_vec(line: ArrayView2<f64>) -> PyResult<Vec<[f64; 2]>> {
+    if line.ncols() != 2 {
+        return Err(PyValueError::new_err(format!(
+            "Vertices must have shape (n, 2), got (n, {})",
+            line.ncols()
+        )));
+    }
+    Ok(line.outer_iter().map(|row| [row[0], row[1]]).collect())
+}
+
+// Helper: one optional value per line from an optional array of any memory layout.
+fn per_line<T: numpy::Element + Copy>(
+    arr: Option<PyReadonlyArray1<T>>,
+    n_lines: usize,
+    name: &str,
+) -> PyResult<Vec<Option<T>>> {
+    let Some(arr) = arr else {
+        return Ok(vec![None; n_lines]);
+    };
+    let view = arr.as_array();
+    validate_array_length(view.len(), n_lines, name)?;
+    Ok(view.iter().map(|&x| Some(x)).collect())
 }
 
 // Helper: convert Vec<[f64; 2]> points to flattened Vec<f64> for ndarray
@@ -55,7 +77,7 @@ fn linestrings_tangent_angles(
     let lines_vec: Vec<Vec<[f64; 2]>> = vertices
         .iter()
         .map(|line_arr| array2_to_vec(line_arr.as_array()))
-        .collect();
+        .collect::<PyResult<_>>()?;
     let angles = py
         .detach(|| linestring::lines_tangents(lines_vec, gs))
         .map_err(PyErr::from)?;
@@ -102,42 +124,19 @@ fn smooth_linestrings(
 ) -> PyResult<Vec<Py<PyArray2<f64>>>> {
     let n_lines = lines.len();
     let lines_vec: Vec<Vec<[f64; 2]>> = lines
-        .into_iter()
+        .iter()
         .map(|line_arr| array2_to_vec(line_arr.as_array()))
-        .collect();
-
-    let ds: Vec<Option<f64>> = if let Some(arr) = distances {
-        let array_view = arr.as_array();
-        let slice = array_view.as_slice().ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid distances array")
-        })?;
-        validate_array_length(slice.len(), n_lines, "distances")?;
-        slice.iter().map(|&x| Some(x)).collect()
-    } else {
-        vec![None; n_lines]
-    };
-
-    let n_pts_vec: Vec<Option<usize>> = if let Some(arr) = n_pts {
-        let array_view = arr.as_array();
-        let slice = array_view.as_slice().ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid n_pts array")
-        })?;
-        validate_array_length(slice.len(), n_lines, "n_pts")?;
-        slice.iter().map(|&x| Some(x as usize)).collect()
-    } else {
-        vec![None; n_lines]
-    };
-
-    let gs: Vec<Option<f64>> = if let Some(arr) = gaussian_sigmas {
-        let array_view = arr.as_array();
-        let slice = array_view.as_slice().ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid gaussian_sigmas array")
-        })?;
-        validate_array_length(slice.len(), n_lines, "gaussian_sigmas")?;
-        slice.iter().map(|&x| Some(x)).collect()
-    } else {
-        vec![None; n_lines]
-    };
+        .collect::<PyResult<_>>()?;
+    let ds = per_line(distances, n_lines, "distances")?;
+    let n_pts_vec = per_line(n_pts, n_lines, "n_pts")?
+        .into_iter()
+        .map(|n| {
+            n.map(usize::try_from)
+                .transpose()
+                .map_err(|_| PyErr::from(SplineError::InvalidPointCount))
+        })
+        .collect::<PyResult<Vec<_>>>()?;
+    let gs = per_line(gaussian_sigmas, n_lines, "gaussian_sigmas")?;
 
     let bc_conv: Vec<Option<BoundaryCondition>> = if let Some(bcs) = bc_types {
         validate_array_length(bcs.len(), n_lines, "bc_types")?;
@@ -208,7 +207,7 @@ impl CatmullRomWrapper {
         bc_type: &str,
         gaussian_sigma: Option<f64>,
     ) -> PyResult<Self> {
-        let verts: Vec<[f64; 2]> = array2_to_vec(vertices.as_array());
+        let verts: Vec<[f64; 2]> = array2_to_vec(vertices.as_array())?;
         let grid_opt: Option<Vec<f64>> = grid.map(|g| g.as_array().to_vec());
         let bc = match bc_type.to_lowercase().as_str() {
             "natural" => BoundaryCondition::Natural,
@@ -238,11 +237,13 @@ impl CatmullRomWrapper {
         distances: PyReadonlyArray1<f64>,
         n: usize,
     ) -> PyResult<Py<PyArray2<f64>>> {
-        let array_view = distances.as_array();
-        let slice = array_view.as_slice().unwrap();
+        let view = distances.as_array();
+        let distances: Cow<[f64]> = view
+            .as_slice()
+            .map_or_else(|| Cow::Owned(view.to_vec()), Cow::Borrowed);
 
         let pts = py
-            .detach(|| self.inner.evaluate(slice, n))
+            .detach(|| self.inner.evaluate(&distances, n))
             .map_err(PyErr::from)?;
         let (n_pts, flat) = points_to_flat(pts);
 
