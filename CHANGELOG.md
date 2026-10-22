@@ -18,6 +18,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Open two-vertex lines no longer fail with "Internal error in tangent calculation";
+    they produce a straight segment.
+
 ## [0.4.1] - 2026-02-22
 
 ### Fixed

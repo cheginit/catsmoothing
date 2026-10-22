@@ -154,7 +154,7 @@ impl CatmullRom {
         };
 
         let grid = Self::get_grid(grid, alpha, &vertices_vec)?;
-        let tangents = Self::get_tangents(&vertices_vec, &grid, &bc_type)?;
+        let tangents = Self::get_tangents(&vertices_vec, &grid, &bc_type);
         let segments = Self::get_segments(&vertices_vec, &grid, &tangents)?;
 
         Ok(Self {
@@ -271,147 +271,92 @@ impl CatmullRom {
         }
     }
 
-    fn get_tangents(
-        vertices: &[Vec2D],
-        grid: &[f64],
-        bc_type: &BoundaryCondition,
-    ) -> Result<Vec<Vec2D>, SplineError> {
+    /// Returns one tangent per vertex; segment `i` runs from tangent `i` to tangent `i + 1`.
+    /// Closed curves repeat the first vertex at the end, so their first and last tangents match.
+    fn get_tangents(vertices: &[Vec2D], grid: &[f64], bc_type: &BoundaryCondition) -> Vec<Vec2D> {
         let n_verts = vertices.len();
-
-        // Early error check
-        if n_verts < 2 {
-            return Err(SplineError::TooFewVertices);
+        let mut tangents = vec![Vec2D::new(0.0, 0.0); n_verts];
+        for k in 1..n_verts - 1 {
+            tangents[k] = Self::interior_tangent(
+                &vertices[k - 1],
+                &vertices[k],
+                &vertices[k + 1],
+                grid[k] - grid[k - 1],
+                grid[k + 1] - grid[k],
+            );
         }
 
-        // Determine working set of vertices and grid points
-        let n = if *bc_type == BoundaryCondition::Closed {
-            n_verts + 1
-        } else {
-            n_verts
-        };
-
-        // Pre-allocate tangents with the right capacity
-        let expected_tangents = 2 * (n_verts - 1);
-        let mut tangents = Vec::with_capacity(expected_tangents);
-
-        // Special case for only two points
-        if n_verts == 2 {
-            let delta = grid[1] - grid[0];
-            let tangent = vertices[1].sub(&vertices[0]).scale(1.0 / delta);
-            // Push it twice (Vec2D is Copy)
-            tangents.push(tangent);
-            tangents.push(tangent);
-        } else {
-            // Index mapping function to handle the closed case efficiently
-            let v_idx = |i: usize| -> usize {
-                if *bc_type == BoundaryCondition::Closed && i == n - 1 {
-                    1 // For closed curves, wrap back to second point
+        let last = n_verts - 1;
+        match bc_type {
+            BoundaryCondition::Closed => {
+                let seam = Self::interior_tangent(
+                    &vertices[last - 1],
+                    &vertices[0],
+                    &vertices[1],
+                    grid[last] - grid[last - 1],
+                    grid[1] - grid[0],
+                );
+                tangents[0] = seam;
+                tangents[last] = seam;
+            }
+            BoundaryCondition::Natural | BoundaryCondition::Clamped => {
+                // A two-vertex line has no interior tangent; the chord slope stands in.
+                let chord = vertices[1]
+                    .sub(&vertices[0])
+                    .scale(1.0 / (grid[1] - grid[0]));
+                let (after_start, before_end) = if n_verts > 2 {
+                    (tangents[1], tangents[last - 1])
                 } else {
-                    i % n_verts // Normal indexing for all other cases
-                }
-            };
-
-            let g_idx = |i: usize| -> f64 {
-                if *bc_type == BoundaryCondition::Closed && i == n - 1 {
-                    // For closed curves, the last grid point is computed
-                    grid[grid.len() - 1] + grid[1] - grid[0]
-                } else {
-                    grid[i % grid.len()]
-                }
-            };
-
-            // Process internal tangents (more efficiently)
-            for i in 0..n - 2 {
-                let p_1 = &vertices[v_idx(i)];
-                let p0 = &vertices[v_idx(i + 1)];
-                let p1 = &vertices[v_idx(i + 2)];
-
-                let t_1 = g_idx(i);
-                let t0 = g_idx(i + 1);
-                let t1 = g_idx(i + 2);
-
-                let delta_1 = t0 - t_1;
-                let delta0 = t1 - t0;
-                let inv_delta_1 = 1.0 / delta_1;
-                let inv_delta0 = 1.0 / delta0;
-                let delta_sum_inv = 1.0 / (delta0 + delta_1);
-
-                // Calculate tangent directly with Vec2D operations
-                let v_1 = p0.sub(p_1).scale(inv_delta_1);
-                let v0 = p1.sub(p0).scale(inv_delta0);
-                let tangent = v_1
-                    .scale(delta0)
-                    .add(&v0.scale(delta_1))
-                    .scale(delta_sum_inv);
-
-                // Push tangent twice (Vec2D is Copy)
-                tangents.push(tangent);
-                tangents.push(tangent);
+                    (chord, chord)
+                };
+                tangents[0] = Self::end_tangent(
+                    bc_type,
+                    &vertices[0],
+                    &vertices[1],
+                    grid[1] - grid[0],
+                    &after_start,
+                );
+                tangents[last] = Self::end_tangent(
+                    bc_type,
+                    &vertices[last - 1],
+                    &vertices[last],
+                    grid[last] - grid[last - 1],
+                    &before_end,
+                );
             }
         }
-
-        // Handle boundary conditions
-        if *bc_type == BoundaryCondition::Closed {
-            tangents.rotate_right(1);
-        } else {
-            // Add boundary tangents for non-closed curves
-            let start_tangent = Self::get_bc_tangent(
-                bc_type,
-                &vertices[0],
-                &vertices[1],
-                grid[0],
-                grid[1],
-                &tangents[0],
-            )?;
-
-            let end_tangent = Self::get_bc_tangent(
-                bc_type,
-                &vertices[n_verts - 2],
-                &vertices[n_verts - 1],
-                grid[n_verts - 2],
-                grid[n_verts - 1],
-                &tangents[tangents.len() - 1],
-            )?;
-
-            // Build ordered result: [start, ...interior..., end]
-            // Avoids O(n) shift from insert(0, ...)
-            let mut result = Vec::with_capacity(expected_tangents);
-            result.push(start_tangent);
-            result.extend_from_slice(&tangents);
-            result.push(end_tangent);
-            tangents = result;
-        }
-
-        // Final validation
-        if tangents.len() != expected_tangents {
-            return Err(SplineError::TangentError);
-        }
-
-        Ok(tangents)
+        tangents
     }
 
-    fn get_bc_tangent(
+    fn interior_tangent(
+        p_prev: &Vec2D,
+        p: &Vec2D,
+        p_next: &Vec2D,
+        delta_prev: f64,
+        delta_next: f64,
+    ) -> Vec2D {
+        let v_prev = p.sub(p_prev).scale(1.0 / delta_prev);
+        let v_next = p_next.sub(p).scale(1.0 / delta_next);
+        v_prev
+            .scale(delta_next)
+            .add(&v_next.scale(delta_prev))
+            .scale(1.0 / (delta_next + delta_prev))
+    }
+
+    fn end_tangent(
         bc_type: &BoundaryCondition,
         p0: &Vec2D,
         p1: &Vec2D,
-        t0: f64,
-        t1: f64,
-        other_tangent: &Vec2D,
-    ) -> Result<Vec2D, SplineError> {
-        match bc_type {
-            BoundaryCondition::Natural => {
-                let delta = t1 - t0;
-                let inv_delta = 1.0 / (2.0 * delta);
-                Ok(p1
-                    .sub(p0)
-                    .scale(3.0 * inv_delta)
-                    .add(&other_tangent.scale(-0.5)))
-            }
-            BoundaryCondition::Clamped => {
-                let delta = t1 - t0;
-                Ok(p1.sub(p0).scale(1.0 / delta))
-            }
-            _ => Err(SplineError::InvalidBoundaryCondition),
+        delta: f64,
+        neighbor_tangent: &Vec2D,
+    ) -> Vec2D {
+        if *bc_type == BoundaryCondition::Natural {
+            let inv_delta = 1.0 / (2.0 * delta);
+            p1.sub(p0)
+                .scale(3.0 * inv_delta)
+                .add(&neighbor_tangent.scale(-0.5))
+        } else {
+            p1.sub(p0).scale(1.0 / delta)
         }
     }
 
@@ -428,8 +373,8 @@ impl CatmullRom {
             .map(|i| {
                 let x0 = &vertices[i];
                 let x1 = &vertices[i + 1];
-                let v0 = &tangents[2 * i];
-                let v1 = &tangents[2 * i + 1];
+                let v0 = &tangents[i];
+                let v1 = &tangents[i + 1];
                 let dt = grid[i + 1] - grid[i];
 
                 // Use Array2 directly with fixed size for efficiency
