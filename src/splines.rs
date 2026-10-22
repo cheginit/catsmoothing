@@ -1,7 +1,6 @@
 use crate::error::SplineError;
 use crate::utils::{are_points_close, interpolate};
 use ndarray::parallel::prelude::*;
-use ndarray::Array1;
 use std::ops::{Add, Mul, Sub};
 use std::str::FromStr;
 
@@ -16,29 +15,6 @@ impl Vec2D {
     #[inline]
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
-    }
-
-    #[inline]
-    pub fn from_slice(slice: &[f64]) -> Self {
-        assert!(slice.len() >= 2);
-        Self {
-            x: slice[0],
-            y: slice[1],
-        }
-    }
-
-    #[inline]
-    pub fn from_array(arr: &Array1<f64>) -> Self {
-        assert!(arr.len() >= 2);
-        Self {
-            x: arr[0],
-            y: arr[1],
-        }
-    }
-
-    #[inline]
-    pub fn to_array(&self) -> Array1<f64> {
-        Array1::from_vec(vec![self.x, self.y])
     }
 
     #[inline]
@@ -237,51 +213,34 @@ impl CatmullRom {
         smoothed_vertices
     }
 
+    /// Builds the knot grid. `alpha` takes precedence over an explicit `grid`; with neither,
+    /// knots are uniform.
     fn get_grid(
         grid: Option<Vec<f64>>,
         alpha: Option<f64>,
         vertices: &[Vec2D],
     ) -> Result<Vec<f64>, SplineError> {
-        if grid.is_none() && alpha.is_none() {
-            // Use efficient iterator for uniform grid
-            return Ok((0..vertices.len()).map(|i| i as f64).collect());
-        } else if let Some(alpha) = alpha {
-            // Pre-allocate for efficiency
-            let n = vertices.len();
-            let mut norms = Vec::with_capacity(n - 1);
-            let mut grid_diffs = Vec::with_capacity(n - 1);
-            let mut grid = Vec::with_capacity(n);
-
-            // Calculate differences and norms
-            for i in 0..n - 1 {
-                let diff = vertices[i + 1] - vertices[i];
-                norms.push(diff.norm());
+        match (alpha, grid) {
+            (Some(alpha), _) => {
+                let mut grid = Vec::with_capacity(vertices.len());
+                let mut total = 0.0;
+                grid.push(total);
+                for pair in vertices.windows(2) {
+                    total += (pair[1] - pair[0]).norm().powf(alpha);
+                    grid.push(total);
+                }
+                Ok(grid)
             }
-
-            // Calculate grid differences
-            for &norm in &norms {
-                grid_diffs.push(norm.powf(alpha));
+            (None, Some(grid)) => {
+                if grid.len() != vertices.len() {
+                    return Err(SplineError::GridLengthMismatch);
+                }
+                if !(grid.iter().all(|g| g.is_finite()) && grid.windows(2).all(|w| w[0] < w[1])) {
+                    return Err(SplineError::InvalidGrid);
+                }
+                Ok(grid)
             }
-
-            // Construct cumulative grid
-            grid.push(0.0);
-            let mut cumsum = 0.0;
-            for diff in grid_diffs {
-                cumsum += diff;
-                grid.push(cumsum);
-            }
-
-            Ok(grid)
-        } else if let Some(grid) = grid {
-            if grid.len() != vertices.len() {
-                return Err(SplineError::GridLengthMismatch);
-            }
-            if !(grid.iter().all(|g| g.is_finite()) && grid.windows(2).all(|w| w[0] < w[1])) {
-                return Err(SplineError::InvalidGrid);
-            }
-            Ok(grid)
-        } else {
-            Err(SplineError::InvalidBoundaryCondition)
+            (None, None) => Ok((0..vertices.len()).map(|i| i as f64).collect()),
         }
     }
 
