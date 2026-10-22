@@ -1,15 +1,14 @@
 use crate::{linestring, BoundaryCondition, CatmullRom, SplineError};
-use numpy::ndarray::{Array1, Array2, ArrayView2};
+use numpy::ndarray::{Array2, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use std::borrow::Cow;
 
-// Convert SplineError into PyErr.
 impl From<SplineError> for PyErr {
     fn from(err: SplineError) -> PyErr {
-        PyErr::new::<pyo3::exceptions::PyValueError, _>(err.to_string())
+        PyValueError::new_err(err.to_string())
     }
 }
 
@@ -38,19 +37,20 @@ fn per_line<T: numpy::Element + Copy>(
     Ok(view.iter().map(|&x| Some(x)).collect())
 }
 
-// Helper: convert Vec<[f64; 2]> points to flattened Vec<f64> for ndarray
-fn points_to_flat(points: Vec<[f64; 2]>) -> (usize, Vec<f64>) {
+// Helper: reinterpret points as an (n, 2) array, reusing their allocation.
+fn points_to_pyarray(py: Python<'_>, points: Vec<[f64; 2]>) -> Py<PyArray2<f64>> {
     let n = points.len();
-    let flat: Vec<f64> = points.into_iter().flat_map(|pt| [pt[0], pt[1]]).collect();
-    (n, flat)
+    Array2::from_shape_vec((n, 2), points.into_flattened())
+        .expect("n points flatten to exactly 2n values")
+        .into_pyarray(py)
+        .unbind()
 }
 
 // Helper: validate array length matches expected count, returning PyErr if not
 fn validate_array_length(arr_len: usize, expected: usize, name: &str) -> PyResult<()> {
     if arr_len != expected {
-        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-            "Length of {} must match number of lines",
-            name
+        return Err(PyValueError::new_err(format!(
+            "Length of {name} must match number of lines"
         )));
     }
     Ok(())
@@ -84,7 +84,7 @@ fn linestrings_tangent_angles(
 
     Ok(angles
         .into_iter()
-        .map(|a| Array1::from(a).into_pyarray(py).to_owned().into())
+        .map(|a| a.into_pyarray(py).unbind())
         .collect())
 }
 
@@ -161,19 +161,10 @@ fn smooth_linestrings(
         })
         .map_err(PyErr::from)?;
 
-    let result: Vec<Py<PyArray2<f64>>> = smoothed_vec
+    Ok(smoothed_vec
         .into_iter()
-        .map(|line| {
-            let (n, flat) = points_to_flat(line);
-            Array2::from_shape_vec((n, 2), flat)
-                .unwrap()
-                .into_pyarray(py)
-                .to_owned()
-                .into()
-        })
-        .collect();
-
-    Ok(result)
+        .map(|line| points_to_pyarray(py, line))
+        .collect())
 }
 
 /// Python class: CatmullRom
@@ -211,7 +202,7 @@ impl CatmullRomWrapper {
 
     #[getter]
     fn grid(&self, py: Python) -> Py<PyArray1<f64>> {
-        self.inner.grid.clone().into_pyarray(py).to_owned().into()
+        self.inner.grid.clone().into_pyarray(py).unbind()
     }
 
     #[pyo3(signature = (distances, n))]
@@ -229,14 +220,7 @@ impl CatmullRomWrapper {
         let pts = py
             .detach(|| self.inner.evaluate(&distances, n))
             .map_err(PyErr::from)?;
-        let (n_pts, flat) = points_to_flat(pts);
-
-        // Convert to Python array
-        Ok(Array2::from_shape_vec((n_pts, 2), flat)
-            .unwrap()
-            .into_pyarray(py)
-            .to_owned()
-            .into())
+        Ok(points_to_pyarray(py, pts))
     }
 
     fn uniform_distances(
@@ -252,7 +236,7 @@ impl CatmullRomWrapper {
                     .uniform_distances(n_pts, tolerance, max_iterations)
             })
             .map_err(PyErr::from)?;
-        Ok(distances.into_pyarray(py).to_owned().into())
+        Ok(distances.into_pyarray(py).unbind())
     }
 }
 
