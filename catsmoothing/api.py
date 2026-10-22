@@ -106,7 +106,8 @@ class CatmullRom:
         distances : array_like
             Distance(s) along the curve to evaluate.
         n : int, optional
-            Order of derivative, by default 0, i.e., the value itself.
+            Order of derivative with respect to the curve parameter (``grid``),
+            by default 0, i.e., the value itself.
 
         Returns
         -------

@@ -518,3 +518,44 @@ fn test_two_vertex_open_line_is_straight() {
         }
     }
 }
+
+#[test]
+fn test_derivatives_match_finite_differences_on_non_unit_grid() {
+    let vertices = vec![[0.0, 0.0], [1.0, 2.0], [4.0, 0.0], [5.0, 3.0]];
+    let explicit = CatmullRom::new(
+        vertices.clone(),
+        Some(vec![0.0, 2.0, 5.0, 5.5]),
+        None,
+        BoundaryCondition::Natural,
+        None,
+    )
+    .unwrap();
+    let centripetal =
+        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Clamped, None).unwrap();
+    for spline in [explicit, centripetal] {
+        let h = 1e-5;
+        let grid = &spline.grid;
+        for w in grid.windows(2) {
+            for frac in [0.25, 0.5, 0.75] {
+                let t = w[0] + frac * (w[1] - w[0]);
+                let p = spline.evaluate(&[t - h, t, t + h], 0).unwrap();
+                let d1 = spline.evaluate(&[t], 1).unwrap()[0];
+                let d2 = spline.evaluate(&[t], 2).unwrap()[0];
+                for k in 0..2 {
+                    let fd1 = (p[2][k] - p[0][k]) / (2.0 * h);
+                    let fd2 = (p[2][k] - 2.0 * p[1][k] + p[0][k]) / (h * h);
+                    assert!(
+                        (d1[k] - fd1).abs() < 1e-6,
+                        "first derivative {} vs {fd1} at t={t}",
+                        d1[k]
+                    );
+                    assert!(
+                        (d2[k] - fd2).abs() < 1e-3,
+                        "second derivative {} vs {fd2} at t={t}",
+                        d2[k]
+                    );
+                }
+            }
+        }
+    }
+}

@@ -20,6 +20,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Open two-vertex lines no longer fail with "Internal error in tangent calculation";
     they produce a straight segment.
+- `CatmullRom.evaluate` with `n=1` or `n=2` now returns derivatives with respect to the
+    curve parameter. They were scaled by each segment's grid step (and its square), so
+    magnitudes change on any non-unit grid. Tangent angles are unaffected.
 
 ## [0.4.1] - 2026-02-22
 
