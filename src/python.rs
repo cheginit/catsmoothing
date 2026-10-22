@@ -1,5 +1,5 @@
 use crate::{linestring, BoundaryCondition, CatmullRom, SplineError};
-use ndarray::{Array1, Array2, ArrayView2};
+use numpy::ndarray::{Array1, Array2, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

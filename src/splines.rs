@@ -1,6 +1,6 @@
 use crate::error::SplineError;
 use crate::utils::{are_points_close, interpolate};
-use ndarray::parallel::prelude::*;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::ops::{Add, Mul, Sub};
 use std::str::FromStr;
 
