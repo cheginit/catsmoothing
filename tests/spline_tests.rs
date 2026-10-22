@@ -559,3 +559,18 @@ fn test_derivatives_match_finite_differences_on_non_unit_grid() {
         }
     }
 }
+
+#[test]
+fn test_uniform_distances_respects_grid_origin() {
+    let vertices = vec![[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]];
+    let spline = CatmullRom::new(
+        vertices,
+        Some(vec![10.0, 11.0, 12.0]),
+        None,
+        BoundaryCondition::Natural,
+        None,
+    )
+    .unwrap();
+    let distances = spline.uniform_distances(3, 1e-9, 100).unwrap();
+    assert_close(&distances, &[10.0, 11.0, 12.0], 1e-9);
+}
