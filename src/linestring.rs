@@ -1,6 +1,6 @@
 use crate::error::SplineError;
 use crate::splines::{BoundaryCondition, CatmullRom};
-use ndarray::parallel::prelude::*;
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 pub fn line_tangents(
     line: Vec<[f64; 2]>,
@@ -32,7 +32,6 @@ pub fn lines_tangents(
     if lines.len() != gaussian_sigmas.len() {
         return Err(SplineError::MismatchedInputLengths);
     }
-    // Use ndarray-parallel's prelude for parallel iteration.
     lines
         .into_par_iter()
         .zip(gaussian_sigmas)
@@ -98,7 +97,6 @@ pub fn smooth_linestrings(
     {
         return Err(SplineError::MismatchedInputLengths);
     }
-    // Use ndarray-parallel's prelude for parallel iteration.
     lines
         .into_par_iter()
         .zip(distances)

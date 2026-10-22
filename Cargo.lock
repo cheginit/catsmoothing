@@ -34,7 +34,6 @@ name = "catsmoothing-python"
 version = "0.4.1"
 dependencies = [
  "approx",
- "ndarray",
  "numpy",
  "pyo3",
  "rand",
@@ -233,7 +232,6 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
- "rayon",
 ]
 
 [[package]]
