@@ -52,16 +52,18 @@ fn linestrings_tangent_angles(
     let gs = gaussian_sigmas.unwrap_or_else(|| vec![None; n_lines]);
     validate_array_length(gs.len(), n_lines, "gaussian_sigmas")?;
 
-    let mut results = Vec::with_capacity(n_lines);
-    for (line_arr, sigma) in vertices.into_iter().zip(gs.into_iter()) {
-        let line_vec = array2_to_vec(line_arr.as_array());
+    let lines_vec: Vec<Vec<[f64; 2]>> = vertices
+        .iter()
+        .map(|line_arr| array2_to_vec(line_arr.as_array()))
+        .collect();
+    let angles = py
+        .detach(|| linestring::lines_tangents(lines_vec, gs))
+        .map_err(PyErr::from)?;
 
-        let angles = linestring::line_tangents(line_vec, sigma).map_err(PyErr::from)?;
-
-        results.push(Array1::from(angles).into_pyarray(py).to_owned().into());
-    }
-
-    Ok(results)
+    Ok(angles
+        .into_iter()
+        .map(|a| Array1::from(a).into_pyarray(py).to_owned().into())
+        .collect())
 }
 
 /// Python function: smooth_linestrings
@@ -153,16 +155,19 @@ fn smooth_linestrings(
         vec![None; n_lines]
     };
 
-    let smoothed_vec = linestring::smooth_linestrings(
-        lines_vec,
-        ds,
-        n_pts_vec,
-        gs,
-        bc_conv,
-        Some(tolerance),
-        Some(max_iterations),
-    )
-    .map_err(PyErr::from)?;
+    let smoothed_vec = py
+        .detach(|| {
+            linestring::smooth_linestrings(
+                lines_vec,
+                ds,
+                n_pts_vec,
+                gs,
+                bc_conv,
+                Some(tolerance),
+                Some(max_iterations),
+            )
+        })
+        .map_err(PyErr::from)?;
 
     let result: Vec<Py<PyArray2<f64>>> = smoothed_vec
         .into_iter()
@@ -196,6 +201,7 @@ impl CatmullRomWrapper {
     #[new]
     #[pyo3(signature = (vertices, grid=None, alpha=None, bc_type="natural", gaussian_sigma=None))]
     fn new(
+        py: Python,
         vertices: PyReadonlyArray2<f64>,
         grid: Option<PyReadonlyArray1<f64>>,
         alpha: Option<f64>,
@@ -214,8 +220,9 @@ impl CatmullRomWrapper {
                 ))
             }
         };
-        let spline =
-            CatmullRom::new(verts, grid_opt, alpha, bc, gaussian_sigma).map_err(PyErr::from)?;
+        let spline = py
+            .detach(|| CatmullRom::new(verts, grid_opt, alpha, bc, gaussian_sigma))
+            .map_err(PyErr::from)?;
         Ok(CatmullRomWrapper { inner: spline })
     }
 
@@ -234,7 +241,9 @@ impl CatmullRomWrapper {
         let array_view = distances.as_array();
         let slice = array_view.as_slice().unwrap();
 
-        let pts = self.inner.evaluate(slice, n).map_err(PyErr::from)?;
+        let pts = py
+            .detach(|| self.inner.evaluate(slice, n))
+            .map_err(PyErr::from)?;
         let (n_pts, flat) = points_to_flat(pts);
 
         // Convert to Python array
@@ -252,9 +261,11 @@ impl CatmullRomWrapper {
         tolerance: f64,
         max_iterations: usize,
     ) -> PyResult<Py<PyArray1<f64>>> {
-        let distances = self
-            .inner
-            .uniform_distances(n_pts, tolerance, max_iterations)
+        let distances = py
+            .detach(|| {
+                self.inner
+                    .uniform_distances(n_pts, tolerance, max_iterations)
+            })
             .map_err(PyErr::from)?;
         Ok(distances.into_pyarray(py).to_owned().into())
     }
