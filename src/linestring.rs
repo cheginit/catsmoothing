@@ -49,6 +49,15 @@ pub fn smooth_linestring(
     tolerance: Option<f64>,
     max_iterations: Option<usize>,
 ) -> Result<Vec<[f64; 2]>, SplineError> {
+    if n_pts.is_none() && distance.is_none() {
+        return Err(SplineError::InvalidSmoothingParameters);
+    }
+    if distance.is_some_and(|d| !(d.is_finite() && d > 0.0)) {
+        return Err(SplineError::InvalidDistance);
+    }
+    if n_pts.is_some_and(|n| n < 2) {
+        return Err(SplineError::InvalidPointCount);
+    }
     let spline = CatmullRom::new(
         vertices,
         None,
@@ -56,16 +65,16 @@ pub fn smooth_linestring(
         bc_type.unwrap_or(BoundaryCondition::Clamped),
         gaussian_sigma,
     )?;
-    if n_pts.is_none() && distance.is_none() {
-        return Err(SplineError::InvalidSmoothingParameters);
-    }
-    let mut n_pts_ = n_pts.unwrap_or(0);
-    if n_pts_ == 0 {
-        let total_length = spline.grid[spline.grid.len() - 1];
-        n_pts_ = (total_length / distance.unwrap()).ceil() as usize;
-    }
+    let n_pts = match (n_pts, distance) {
+        (Some(n_pts), _) => n_pts,
+        (None, Some(distance)) => {
+            let total_length = spline.grid[spline.grid.len() - 1];
+            (total_length / distance).ceil() as usize
+        }
+        (None, None) => unreachable!("checked above"),
+    };
     let distances = spline.uniform_distances(
-        n_pts_,
+        n_pts,
         tolerance.unwrap_or(1e-6),
         max_iterations.unwrap_or(100),
     )?;

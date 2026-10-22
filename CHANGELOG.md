@@ -35,6 +35,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     wrapped indices.
 - The `RAYON_NUM_THREADS` environment variable is honored. Constructing a `CatmullRom`
     before any batch call used to pin the thread pool to all available cores.
+- Invalid inputs raise `ValueError` where they used to raise `PanicException` or return
+    NaN: `n_pts` below 2, nonpositive or nonfinite `distances`, vertex arrays without
+    exactly two columns, nonfinite vertices, `alpha` or `gaussian_sigma`, explicit grids
+    that are not strictly increasing, and a nonpositive `tolerance`.
+- Non-contiguous NumPy arrays (for example `d[::2]`) are accepted everywhere.
 
 ## [0.4.1] - 2026-02-22
 
