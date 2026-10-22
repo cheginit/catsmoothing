@@ -15,6 +15,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     keyword-only.
 - Supported Python versions are 3.13 to 3.15; Python 3.10 to 3.12 are no longer
     supported. Extension builds use PyO3 0.30, which supports Python 3.15.
+- Spline segments store their cubic coefficients inline and evaluate with Horner's
+    rule, and per-line work runs serially below 4096 points. Building a 2000-vertex
+    spline is about 6x faster, and smoothing 2000 lines of 100 vertices about 2x faster.
 
 ### Fixed
 
