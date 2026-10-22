@@ -25,6 +25,7 @@ optional = true
 
 [dev-dependencies]
 approx = "0.5"
+rayon = "1"
 rand = { version = "0.10", features = ["std"] }
 rand_distr = "0.6"
 

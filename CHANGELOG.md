@@ -28,6 +28,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Gaussian smoothing mirrors correctly when the kernel (`4 * gaussian_sigma` vertices on
     each side) is wider than the line. Debug builds panicked and release builds read
     wrapped indices.
+- The `RAYON_NUM_THREADS` environment variable is honored. Constructing a `CatmullRom`
+    before any batch call used to pin the thread pool to all available cores.
 
 ## [0.4.1] - 2026-02-22
 
