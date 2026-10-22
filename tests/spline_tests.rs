@@ -37,8 +37,8 @@ fn test_spline_alpha_0() {
     let spline =
         CatmullRom::new(vertices, None, Some(0.0), BoundaryCondition::Closed, None).unwrap();
 
-    let grid_start = spline.grid[0];
-    let grid_end = spline.grid.last().unwrap();
+    let grid_start = spline.grid()[0];
+    let grid_end = spline.grid().last().unwrap();
     let dots = ((grid_end - grid_start) * n_pts) as usize + 1;
     let distances: Vec<f64> = (0..dots).map(|i| grid_start + (i as f64) / n_pts).collect();
 
@@ -63,8 +63,8 @@ fn test_spline_alpha_0_5() {
     let spline =
         CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
 
-    let grid_start = spline.grid[0];
-    let grid_end = spline.grid.last().unwrap();
+    let grid_start = spline.grid()[0];
+    let grid_end = spline.grid().last().unwrap();
     let dots = ((grid_end - grid_start) * n_pts) as usize + 1;
     let distances: Vec<f64> = (0..dots).map(|i| grid_start + (i as f64) / n_pts).collect();
 
@@ -88,8 +88,8 @@ fn test_spline_alpha_1() {
     let spline =
         CatmullRom::new(vertices, None, Some(1.0), BoundaryCondition::Closed, None).unwrap();
 
-    let grid_start = spline.grid[0];
-    let grid_end = *spline.grid.last().unwrap();
+    let grid_start = spline.grid()[0];
+    let grid_end = *spline.grid().last().unwrap();
     let dots = ((grid_end - grid_start) * n_pts).floor() as usize + 1;
     let distances: Vec<f64> = (0..dots).map(|i| grid_start + (i as f64) / n_pts).collect();
 
@@ -341,7 +341,7 @@ fn test_second_derivative_varies_with_parameter() {
     let spline =
         CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
-    let grid_end = *spline.grid.last().unwrap();
+    let grid_end = *spline.grid().last().unwrap();
     let distances: Vec<f64> = (0..20).map(|i| grid_end * (i as f64) / 19.0).collect();
     let second_derivs = spline.evaluate(&distances, 2).unwrap();
 
@@ -365,7 +365,7 @@ fn test_second_derivative_at_segment_start_is_finite() {
     let spline =
         CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
-    let distances = vec![spline.grid[0]];
+    let distances = vec![spline.grid()[0]];
     let result = spline.evaluate(&distances, 2).unwrap();
     assert!(result[0][0].is_finite());
     assert!(result[0][1].is_finite());
@@ -388,8 +388,8 @@ fn test_evaluate_boundary_distances() {
     let spline =
         CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
-    let grid_start = spline.grid[0];
-    let grid_end = *spline.grid.last().unwrap();
+    let grid_start = spline.grid()[0];
+    let grid_end = *spline.grid().last().unwrap();
 
     // Test at exact boundaries and beyond
     let distances = vec![
@@ -415,7 +415,7 @@ fn test_uniform_distances_single_point() {
     // n_pts < 2 should return a single grid point
     let result = spline.uniform_distances(1, 1e-6, 10).unwrap();
     assert_eq!(result.len(), 1);
-    assert_close(&result, &[spline.grid[0]], 1e-12);
+    assert_close(&result, &[spline.grid()[0]], 1e-12);
 }
 
 #[test]
@@ -426,7 +426,7 @@ fn test_first_derivative_at_known_curve() {
         CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
     // Evaluate first derivative at the midpoint
-    let mid = vec![spline.grid[1]];
+    let mid = vec![spline.grid()[1]];
     let tangent = spline.evaluate(&mid, 1).unwrap();
 
     // At the peak, dy should be ~0 (horizontal tangent)
@@ -444,7 +444,7 @@ fn test_three_point_spline_all_boundary_conditions() {
 
     for bc_type in [BoundaryCondition::Natural, BoundaryCondition::Clamped] {
         let spline = CatmullRom::new(vertices.clone(), None, Some(0.5), bc_type, None).unwrap();
-        let grid_end = *spline.grid.last().unwrap();
+        let grid_end = *spline.grid().last().unwrap();
         let distances = vec![0.0, grid_end / 2.0, grid_end];
         let result = spline.evaluate(&distances, 0).unwrap();
         assert_eq!(result.len(), 3);
@@ -468,7 +468,7 @@ fn test_closed_spline_wraps_correctly() {
     let spline =
         CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
 
-    let grid_end = *spline.grid.last().unwrap();
+    let grid_end = *spline.grid().last().unwrap();
     let distances: Vec<f64> = (0..40).map(|i| grid_end * (i as f64) / 39.0).collect();
     let points = spline.evaluate(&distances, 0).unwrap();
 
@@ -492,7 +492,7 @@ fn test_gaussian_smoothing_preserves_endpoints() {
     .unwrap();
 
     // Evaluate at grid start and end
-    let distances = vec![spline.grid[0], *spline.grid.last().unwrap()];
+    let distances = vec![spline.grid()[0], *spline.grid().last().unwrap()];
     let points = spline.evaluate(&distances, 0).unwrap();
 
     // Endpoints should be the original vertices (Gaussian smoothing preserves endpoints)
@@ -505,7 +505,7 @@ fn test_two_vertex_open_line_is_straight() {
     for bc_type in [BoundaryCondition::Natural, BoundaryCondition::Clamped] {
         let spline =
             CatmullRom::new(vec![[0.0, 0.0], [2.0, 1.0]], None, Some(0.5), bc_type, None).unwrap();
-        let end = *spline.grid.last().unwrap();
+        let end = *spline.grid().last().unwrap();
         let points = spline
             .evaluate(&[0.0, end / 4.0, end / 2.0, end], 0)
             .unwrap();
@@ -534,7 +534,7 @@ fn test_derivatives_match_finite_differences_on_non_unit_grid() {
         CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Clamped, None).unwrap();
     for spline in [explicit, centripetal] {
         let h = 1e-5;
-        let grid = &spline.grid;
+        let grid = spline.grid();
         for w in grid.windows(2) {
             for frac in [0.25, 0.5, 0.75] {
                 let t = w[0] + frac * (w[1] - w[0]);
@@ -587,7 +587,7 @@ fn test_gaussian_smoothing_kernel_wider_than_line() {
         Some(sigma),
     )
     .unwrap();
-    let middle = spline.evaluate(&[spline.grid[1]], 0).unwrap()[0];
+    let middle = spline.evaluate(&[spline.grid()[1]], 0).unwrap()[0];
 
     // Reference: mirror sequence for index 1 + k with period 4 visits x = [0, 1, 2, 1].
     let radius = (4.0 * sigma).ceil() as i64;

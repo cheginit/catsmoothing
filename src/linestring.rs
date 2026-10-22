@@ -2,6 +2,12 @@ use crate::error::SplineError;
 use crate::splines::{BoundaryCondition, CatmullRom};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
+/// Tangent angles in radians (`atan2(dy, dx)`) at each vertex of a centripetal spline
+/// through `line`.
+///
+/// # Errors
+///
+/// Fails on the same inputs as [`CatmullRom::new`].
 pub fn line_tangents(
     line: Vec<[f64; 2]>,
     gaussian_sigma: Option<f64>,
@@ -14,10 +20,8 @@ pub fn line_tangents(
         gaussian_sigma,
     )?;
 
-    // Evaluate first derivative (n = 1) to obtain tangent vectors
-    let tangent_vectors = spline.evaluate(&spline.grid, 1)?;
+    let tangent_vectors = spline.evaluate(spline.grid(), 1)?;
 
-    // Convert tangent vectors to angles using atan2(dy, dx)
     let tangent_angles: Vec<f64> = tangent_vectors
         .iter()
         .map(|[dx, dy]| f64::atan2(*dy, *dx))
@@ -25,6 +29,11 @@ pub fn line_tangents(
     Ok(tangent_angles)
 }
 
+/// [`line_tangents`] for each line, in parallel.
+///
+/// # Errors
+///
+/// Fails when the input lengths differ or any line fails.
 pub fn lines_tangents(
     lines: Vec<Vec<[f64; 2]>>,
     gaussian_sigmas: Vec<Option<f64>>,
@@ -67,7 +76,7 @@ pub fn smooth_linestring(
     let n_pts = match (n_pts, distance) {
         (Some(n_pts), _) => n_pts,
         (None, Some(distance)) => {
-            let total_length = spline.grid[spline.grid.len() - 1];
+            let total_length = spline.grid()[spline.grid().len() - 1];
             (total_length / distance).ceil() as usize
         }
         (None, None) => unreachable!("checked above"),
