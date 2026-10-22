@@ -220,6 +220,16 @@ def test_linear_ring():
     assert isinstance(result, shapely.LinearRing)
 
 
+@pytest.mark.parametrize("bc_type", ["natural", "clamped"])
+def test_two_vertex_line(bc_type: Literal["natural", "clamped"]) -> None:
+    line = shapely.LineString([(0, 0), (2, 1)])
+    result = cs.smooth_linestrings(line, n_pts=5, bc_types=bc_type)
+    expected = np.c_[np.linspace(0, 2, 5), np.linspace(0, 1, 5)]
+    assert_close(shapely.get_coordinates(result), expected, 1e-12)
+    angles = cs.linestrings_tangent_angles(line)
+    assert_close(angles, np.full(2, np.arctan2(1, 2)), 1e-12)
+
+
 @pytest.fixture
 def verts():
     rng = np.random.default_rng(123)

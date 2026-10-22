@@ -499,3 +499,22 @@ fn test_gaussian_smoothing_preserves_endpoints() {
     assert_close(&points[0], &vertices[0], 1e-6);
     assert_close(&points[1], &vertices[vertices.len() - 1], 1e-6);
 }
+
+#[test]
+fn test_two_vertex_open_line_is_straight() {
+    for bc_type in [BoundaryCondition::Natural, BoundaryCondition::Clamped] {
+        let spline =
+            CatmullRom::new(vec![[0.0, 0.0], [2.0, 1.0]], None, Some(0.5), bc_type, None).unwrap();
+        let end = *spline.grid.last().unwrap();
+        let points = spline
+            .evaluate(&[0.0, end / 4.0, end / 2.0, end], 0)
+            .unwrap();
+        for (point, expected) in
+            points
+                .iter()
+                .zip([[0.0, 0.0], [0.5, 0.25], [1.0, 0.5], [2.0, 1.0]])
+        {
+            assert_close(point, &expected, 1e-12);
+        }
+    }
+}
