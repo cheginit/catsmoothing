@@ -101,6 +101,8 @@ fn linestrings_tangent_angles(
 ///
 /// Returns:
 ///   - list of NumPy arrays (each shape (m,2))
+// The argument list mirrors the Python signature.
+#[allow(clippy::too_many_arguments)]
 #[pyfunction(
     signature = (
         lines,
