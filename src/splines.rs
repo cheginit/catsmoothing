@@ -2,22 +2,7 @@ use crate::error::SplineError;
 use crate::utils::{are_points_close, interpolate};
 use ndarray::parallel::prelude::*;
 use ndarray::{array, Array1, Array2};
-use rayon::ThreadPoolBuilder;
-use std::sync::{LazyLock, Once};
-
-// Rayon initialization
-pub fn init_rayon() {
-    static INIT_RAYON: Once = Once::new();
-    INIT_RAYON.call_once(|| {
-        let n_threads = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1);
-        let _ = ThreadPoolBuilder::new()
-            .num_threads(n_threads)
-            .build_global();
-        // Ignore errors - pool might already be initialized
-    });
-}
+use std::sync::LazyLock;
 
 // Specialized 2D vector type to replace generic Array1
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -135,9 +120,6 @@ impl CatmullRom {
         if vertices.len() < 2 {
             return Err(SplineError::TooFewVertices);
         }
-
-        // Initialize rayon at the beginning
-        init_rayon();
 
         let vertices = if matches!(bc_type, BoundaryCondition::Closed) {
             let mut v = vertices;
