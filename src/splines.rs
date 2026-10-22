@@ -456,7 +456,9 @@ impl CatmullRom {
                     y += t_vec[i] * coeff[[i, 1]];
                 }
 
-                [x, y]
+                // Derivatives are taken with respect to the grid, so undo the segment normalization.
+                let scale = (d1 - d0).powi(n as i32).recip();
+                [x * scale, y * scale]
             })
             .collect();
 
