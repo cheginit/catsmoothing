@@ -1,9 +1,8 @@
 use crate::error::SplineError;
 use crate::utils::{are_points_close, interpolate};
 use ndarray::parallel::prelude::*;
-use ndarray::{array, Array1, Array2};
+use ndarray::Array1;
 use std::ops::{Add, Mul, Sub};
-use std::sync::LazyLock;
 
 // Specialized 2D vector type to replace generic Array1
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -94,21 +93,23 @@ pub enum BoundaryCondition {
     Clamped,
 }
 
-// Pre-computed matrix for spline calculations
-static HERMITE_MATRIX: LazyLock<Array2<f64>> = LazyLock::new(|| {
-    array![
-        [2.0, -2.0, 1.0, 1.0],
-        [-3.0, 3.0, -2.0, -1.0],
-        [0.0, 0.0, 1.0, 0.0],
-        [1.0, 0.0, 0.0, 0.0]
-    ]
-});
+// Rayon dispatch costs more than evaluating a few thousand points serially.
+const PARALLEL_MIN_POINTS: usize = 4096;
+
+/// Cubic `a t^3 + b t^2 + c t + d` over the segment parameter `t` in `[0, 1]`.
+#[derive(Debug, Clone, Copy)]
+struct Segment {
+    a: Vec2D,
+    b: Vec2D,
+    c: Vec2D,
+    d: Vec2D,
+}
 
 #[derive(Debug)]
 pub struct CatmullRom {
     pub vertices: Vec<Vec2D>,
     pub grid: Vec<f64>,
-    pub segments: Vec<Array2<f64>>,
+    segments: Vec<Segment>,
     pub alpha: Option<f64>,
     pub bc_type: BoundaryCondition,
 }
@@ -149,7 +150,7 @@ impl CatmullRom {
 
         let grid = Self::get_grid(grid, alpha, &vertices_vec)?;
         let tangents = Self::get_tangents(&vertices_vec, &grid, &bc_type);
-        let segments = Self::get_segments(&vertices_vec, &grid, &tangents)?;
+        let segments = Self::get_segments(&vertices_vec, &grid, &tangents);
 
         Ok(Self {
             vertices: vertices_vec,
@@ -339,109 +340,54 @@ impl CatmullRom {
         }
     }
 
-    fn get_segments(
-        vertices: &[Vec2D],
-        grid: &[f64],
-        tangents: &[Vec2D],
-    ) -> Result<Vec<Array2<f64>>, SplineError> {
-        let n_segments = vertices.len() - 1;
-
-        // Use rayon's par_iter directly instead of into_par_iter for better performance
-        let segments: Vec<Array2<f64>> = (0..n_segments)
-            .into_par_iter()
+    /// Converts each Hermite segment (end points and grid-scaled tangents) to power-basis
+    /// coefficients. The Hermite basis matrix is folded into the four sums.
+    fn get_segments(vertices: &[Vec2D], grid: &[f64], tangents: &[Vec2D]) -> Vec<Segment> {
+        (0..vertices.len() - 1)
             .map(|i| {
-                let x0 = &vertices[i];
-                let x1 = &vertices[i + 1];
-                let v0 = &tangents[i];
-                let v1 = &tangents[i + 1];
+                let (x0, x1) = (vertices[i], vertices[i + 1]);
                 let dt = grid[i + 1] - grid[i];
-
-                // Use Array2 directly with fixed size for efficiency
-                let mut seg_data = Array2::zeros((4, 2));
-
-                // Fill in values directly
-                seg_data[[0, 0]] = x0.x;
-                seg_data[[0, 1]] = x0.y;
-                seg_data[[1, 0]] = x1.x;
-                seg_data[[1, 1]] = x1.y;
-                seg_data[[2, 0]] = dt * v0.x;
-                seg_data[[2, 1]] = dt * v0.y;
-                seg_data[[3, 0]] = dt * v1.x;
-                seg_data[[3, 1]] = dt * v1.y;
-
-                // Use reference to HERMITE_MATRIX for dot product
-                HERMITE_MATRIX.dot(&seg_data)
+                let (v0, v1) = (tangents[i] * dt, tangents[i + 1] * dt);
+                Segment {
+                    a: x0 * 2.0 + x1 * -2.0 + v0 + v1,
+                    b: x0 * -3.0 + x1 * 3.0 + v0 * -2.0 + v1 * -1.0,
+                    c: v0,
+                    d: x0,
+                }
             })
-            .collect();
-
-        Ok(segments)
+            .collect()
     }
 
     pub fn evaluate(&self, distances: &[f64], n: usize) -> Result<Vec<[f64; 2]>, SplineError> {
-        if distances.is_empty() {
-            return Ok(Vec::new());
+        if n > 2 {
+            return Err(SplineError::UnsupportedDerivativeOrder);
         }
+        let point = |&distance: &f64| self.evaluate_one(distance, n);
+        if distances.len() < PARALLEL_MIN_POINTS {
+            Ok(distances.iter().map(point).collect())
+        } else {
+            Ok(distances.par_iter().map(point).collect())
+        }
+    }
 
-        let grid_max_idx = self.grid.len().saturating_sub(2);
-
-        // Pre-compute t-vector functions for different derivative orders
-        let t_vector_fn: fn(f64) -> [f64; 4] = match n {
-            0 => |t: f64| -> [f64; 4] {
-                let t2 = t * t;
-                let t3 = t2 * t;
-                [t3, t2, t, 1.0]
-            },
-            1 => |t: f64| -> [f64; 4] {
-                let t2 = t * t;
-                [3.0 * t2, 2.0 * t, 1.0, 0.0]
-            },
-            2 => |t: f64| -> [f64; 4] { [6.0 * t, 2.0, 0.0, 0.0] },
-            _ => return Err(SplineError::UnsupportedDerivativeOrder),
+    fn evaluate_one(&self, distance: f64, n: usize) -> [f64; 2] {
+        // Points outside the grid extrapolate from the first or last segment.
+        let idx = self
+            .grid
+            .partition_point(|&g| g <= distance)
+            .saturating_sub(1)
+            .min(self.segments.len() - 1);
+        let d0 = self.grid[idx];
+        let dt = self.grid[idx + 1] - d0;
+        let t = (distance - d0) / dt;
+        let Segment { a, b, c, d } = self.segments[idx];
+        // Derivatives are taken with respect to the grid, so undo the segment normalization.
+        let p = match n {
+            0 => ((a * t + b) * t + c) * t + d,
+            1 => ((a * (3.0 * t) + b * 2.0) * t + c) * (1.0 / dt),
+            _ => (a * (6.0 * t) + b * 2.0) * (1.0 / (dt * dt)),
         };
-
-        // Use par_iter for parallel execution with thread-safe references
-        let points: Vec<[f64; 2]> = distances
-            .par_iter()
-            .map(|&distance| {
-                // Find appropriate spline segment with boundary handling
-                let idx = if distance <= self.grid[0] {
-                    0
-                } else if distance >= self.grid[self.grid.len() - 1] {
-                    grid_max_idx
-                } else {
-                    // Binary search for segment containing the distance
-                    self.grid
-                        .partition_point(|&x| x <= distance)
-                        .saturating_sub(1)
-                        .min(grid_max_idx)
-                };
-
-                let d0 = self.grid[idx];
-                let d1 = self.grid[idx + 1];
-                let t_normalized = (distance - d0) / (d1 - d0);
-
-                // Get t vector for current parameterization
-                let t_vec = t_vector_fn(t_normalized);
-
-                // Get coefficient matrix for current segment
-                let coeff = &self.segments[idx];
-
-                // Calculate point coordinates
-                let mut x = 0.0;
-                let mut y = 0.0;
-
-                for i in 0..4 {
-                    x += t_vec[i] * coeff[[i, 0]];
-                    y += t_vec[i] * coeff[[i, 1]];
-                }
-
-                // Derivatives are taken with respect to the grid, so undo the segment normalization.
-                let scale = (d1 - d0).powi(n as i32).recip();
-                [x * scale, y * scale]
-            })
-            .collect();
-
-        Ok(points)
+        [p.x, p.y]
     }
 
     pub fn uniform_distances(
