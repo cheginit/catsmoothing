@@ -140,16 +140,9 @@ fn smooth_linestrings(
 
     let bc_conv: Vec<Option<BoundaryCondition>> = if let Some(bcs) = bc_types {
         validate_array_length(bcs.len(), n_lines, "bc_types")?;
-        bcs.into_iter()
-            .map(|s| match s.to_lowercase().as_str() {
-                "natural" => Ok(Some(BoundaryCondition::Natural)),
-                "closed" => Ok(Some(BoundaryCondition::Closed)),
-                "clamped" => Ok(Some(BoundaryCondition::Clamped)),
-                _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Invalid bc_type. Use 'natural', 'closed', or 'clamped'.",
-                )),
-            })
-            .collect::<Result<_, _>>()?
+        bcs.iter()
+            .map(|s| s.parse().map(Some))
+            .collect::<Result<_, SplineError>>()?
     } else {
         vec![None; n_lines]
     };
@@ -209,16 +202,7 @@ impl CatmullRomWrapper {
     ) -> PyResult<Self> {
         let verts: Vec<[f64; 2]> = array2_to_vec(vertices.as_array())?;
         let grid_opt: Option<Vec<f64>> = grid.map(|g| g.as_array().to_vec());
-        let bc = match bc_type.to_lowercase().as_str() {
-            "natural" => BoundaryCondition::Natural,
-            "closed" => BoundaryCondition::Closed,
-            "clamped" => BoundaryCondition::Clamped,
-            _ => {
-                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Invalid bc_type. Use 'natural', 'closed', or 'clamped'.",
-                ))
-            }
-        };
+        let bc: BoundaryCondition = bc_type.parse()?;
         let spline = py
             .detach(|| CatmullRom::new(verts, grid_opt, alpha, bc, gaussian_sigma))
             .map_err(PyErr::from)?;

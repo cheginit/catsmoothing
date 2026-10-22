@@ -4,7 +4,7 @@ use thiserror::Error;
 pub enum SplineError {
     #[error("At least two vertices are required")]
     TooFewVertices,
-    #[error("Invalid boundary condition type")]
+    #[error("Invalid bc_type. Use 'natural', 'closed', or 'clamped'.")]
     InvalidBoundaryCondition,
     #[error("Grid must have same length as vertices")]
     GridLengthMismatch,

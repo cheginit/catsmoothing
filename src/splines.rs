@@ -3,6 +3,7 @@ use crate::utils::{are_points_close, interpolate};
 use ndarray::parallel::prelude::*;
 use ndarray::Array1;
 use std::ops::{Add, Mul, Sub};
+use std::str::FromStr;
 
 // Specialized 2D vector type to replace generic Array1
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -86,11 +87,25 @@ fn mirror_index(k: isize, n: usize) -> usize {
     (if m >= n as isize { period - m } else { m }) as usize
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoundaryCondition {
     Natural,
     Closed,
     Clamped,
+}
+
+impl FromStr for BoundaryCondition {
+    type Err = SplineError;
+
+    /// Parses `"natural"`, `"closed"`, or `"clamped"`, ignoring case.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "natural" => Ok(Self::Natural),
+            "closed" => Ok(Self::Closed),
+            "clamped" => Ok(Self::Clamped),
+            _ => Err(SplineError::InvalidBoundaryCondition),
+        }
+    }
 }
 
 // Rayon dispatch costs more than evaluating a few thousand points serially.
@@ -135,7 +150,7 @@ impl CatmullRom {
             return Err(SplineError::InvalidGaussianSigma);
         }
 
-        let vertices = if matches!(bc_type, BoundaryCondition::Closed) {
+        let vertices = if bc_type == BoundaryCondition::Closed {
             let mut v = vertices;
             if let (Some(first), Some(last)) = (v.first(), v.last()) {
                 if are_points_close(first, last) {
@@ -158,7 +173,7 @@ impl CatmullRom {
         };
 
         let grid = Self::get_grid(grid, alpha, &vertices_vec)?;
-        let tangents = Self::get_tangents(&vertices_vec, &grid, &bc_type);
+        let tangents = Self::get_tangents(&vertices_vec, &grid, bc_type);
         let segments = Self::get_segments(&vertices_vec, &grid, &tangents);
 
         Ok(Self {
@@ -272,7 +287,7 @@ impl CatmullRom {
 
     /// Returns one tangent per vertex; segment `i` runs from tangent `i` to tangent `i + 1`.
     /// Closed curves repeat the first vertex at the end, so their first and last tangents match.
-    fn get_tangents(vertices: &[Vec2D], grid: &[f64], bc_type: &BoundaryCondition) -> Vec<Vec2D> {
+    fn get_tangents(vertices: &[Vec2D], grid: &[f64], bc_type: BoundaryCondition) -> Vec<Vec2D> {
         let n_verts = vertices.len();
         let mut tangents = vec![Vec2D::new(0.0, 0.0); n_verts];
         for k in 1..n_verts - 1 {
@@ -338,13 +353,13 @@ impl CatmullRom {
     }
 
     fn end_tangent(
-        bc_type: &BoundaryCondition,
+        bc_type: BoundaryCondition,
         p0: &Vec2D,
         p1: &Vec2D,
         delta: f64,
         neighbor_tangent: &Vec2D,
     ) -> Vec2D {
-        if *bc_type == BoundaryCondition::Natural {
+        if bc_type == BoundaryCondition::Natural {
             let inv_delta = 1.0 / (2.0 * delta);
             (*p1 - *p0) * (3.0 * inv_delta) + *neighbor_tangent * -0.5
         } else {
