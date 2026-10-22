@@ -2,6 +2,7 @@ use crate::error::SplineError;
 use crate::utils::{are_points_close, interpolate};
 use ndarray::parallel::prelude::*;
 use ndarray::{array, Array1, Array2};
+use std::ops::{Add, Mul, Sub};
 use std::sync::LazyLock;
 
 // Specialized 2D vector type to replace generic Array1
@@ -41,30 +42,6 @@ impl Vec2D {
     }
 
     #[inline]
-    pub fn sub(&self, other: &Vec2D) -> Self {
-        Self {
-            x: self.x - other.x,
-            y: self.y - other.y,
-        }
-    }
-
-    #[inline]
-    pub fn add(&self, other: &Vec2D) -> Self {
-        Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-
-    #[inline]
-    pub fn scale(&self, factor: f64) -> Self {
-        Self {
-            x: self.x * factor,
-            y: self.y * factor,
-        }
-    }
-
-    #[inline]
     pub fn norm_squared(&self) -> f64 {
         self.x * self.x + self.y * self.y
     }
@@ -72,6 +49,33 @@ impl Vec2D {
     #[inline]
     pub fn norm(&self) -> f64 {
         self.norm_squared().sqrt()
+    }
+}
+
+impl Add for Vec2D {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, other: Self) -> Self {
+        Self::new(self.x + other.x, self.y + other.y)
+    }
+}
+
+impl Sub for Vec2D {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, other: Self) -> Self {
+        Self::new(self.x - other.x, self.y - other.y)
+    }
+}
+
+impl Mul<f64> for Vec2D {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, factor: f64) -> Self {
+        Self::new(self.x * factor, self.y * factor)
     }
 }
 
@@ -225,7 +229,7 @@ impl CatmullRom {
 
             // Calculate differences and norms
             for i in 0..n - 1 {
-                let diff = vertices[i + 1].sub(&vertices[i]);
+                let diff = vertices[i + 1] - vertices[i];
                 norms.push(diff.norm());
             }
 
@@ -283,9 +287,7 @@ impl CatmullRom {
             }
             BoundaryCondition::Natural | BoundaryCondition::Clamped => {
                 // A two-vertex line has no interior tangent; the chord slope stands in.
-                let chord = vertices[1]
-                    .sub(&vertices[0])
-                    .scale(1.0 / (grid[1] - grid[0]));
+                let chord = (vertices[1] - vertices[0]) * (1.0 / (grid[1] - grid[0]));
                 let (after_start, before_end) = if n_verts > 2 {
                     (tangents[1], tangents[last - 1])
                 } else {
@@ -317,12 +319,9 @@ impl CatmullRom {
         delta_prev: f64,
         delta_next: f64,
     ) -> Vec2D {
-        let v_prev = p.sub(p_prev).scale(1.0 / delta_prev);
-        let v_next = p_next.sub(p).scale(1.0 / delta_next);
-        v_prev
-            .scale(delta_next)
-            .add(&v_next.scale(delta_prev))
-            .scale(1.0 / (delta_next + delta_prev))
+        let v_prev = (*p - *p_prev) * (1.0 / delta_prev);
+        let v_next = (*p_next - *p) * (1.0 / delta_next);
+        (v_prev * delta_next + v_next * delta_prev) * (1.0 / (delta_next + delta_prev))
     }
 
     fn end_tangent(
@@ -334,11 +333,9 @@ impl CatmullRom {
     ) -> Vec2D {
         if *bc_type == BoundaryCondition::Natural {
             let inv_delta = 1.0 / (2.0 * delta);
-            p1.sub(p0)
-                .scale(3.0 * inv_delta)
-                .add(&neighbor_tangent.scale(-0.5))
+            (*p1 - *p0) * (3.0 * inv_delta) + *neighbor_tangent * -0.5
         } else {
-            p1.sub(p0).scale(1.0 / delta)
+            (*p1 - *p0) * (1.0 / delta)
         }
     }
 
