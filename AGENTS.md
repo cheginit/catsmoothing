@@ -32,8 +32,8 @@ One-line summaries of the decisions any code change can break. The IDs point int
     coordinate units (D-04, D-05).
 - Caller input errors return `SplineError` in Rust and raise `ValueError` in Python;
     Rust never panics on input a caller controls (D-07).
-- Repeated consecutive vertices are dropped, and vertex arrays must have two columns
-    (D-08, D-09).
+- Repeated consecutive vertices are dropped when the grid is generated, and vertex
+    arrays must have two columns (D-08, D-09).
 - Gaussian pre-smoothing point-reflects open ends and wraps rings; Taubin and Gaussian
     smoothing do not combine (D-10, D-11).
 - Continuity splits keep every vertex and its tangent (D-12).

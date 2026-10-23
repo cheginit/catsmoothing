@@ -15,9 +15,9 @@ For every reviewer of a change here, a person or an agent. Read `AGENTS.md` firs
     should see `ValueError` (D-07).
 1. **The public surface moves silently.** A function, argument, default, or return shape
     in `catsmoothing/api.py` changes without a deprecation release (D-06).
-1. **It gets slower.** The GIL stays held during Rust work, a batch copies per line, or
-    quadrature work grows with input it should not (D-03, D-14). CodSpeed comments on
-    every PR.
+1. **It gets slower.** The GIL stays held during Rust work, a batch crosses the
+    Python-Rust boundary once per line, or quadrature work grows with input it should
+    not (D-03, D-14). CodSpeed comments on every PR.
 1. **A claim outruns its test.** A docstring, changelog entry, notebook sentence, or
     design-record entry states behavior that no test or recorded output pins (L-04).
 
