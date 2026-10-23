@@ -36,7 +36,9 @@ dev = [
   "git-cliff",
   "ipykernel",
   "ipywidgets",
+  "jupytext",
   "matplotlib",
+  "nbconvert",
   { include-group = "test" },
   { include-group = "typecheck" },
 ]
@@ -109,6 +111,17 @@ changelog = "git cliff -c pyproject.toml --unreleased"
 changelog-update = { cmd = "git cliff -c pyproject.toml --unreleased --tag {{ version }} --prepend CHANGELOG.md", args = [
   { arg = "version" },
 ] }
+# Sync the py:percent scripts to their paired notebooks.
+nb-sync = "jupytext --sync docs/examples/*.py"
+# Execute every notebook in place against a release build, since one of them times it.
+nb-execute = { cmd = "jupyter nbconvert --to notebook --execute --inplace docs/examples/*.ipynb", depends-on = [
+  "nb-build",
+] }
+nb-build = "maturin develop --uv --release"
+# Sync, then execute: run before committing a notebook.
+nb-run = { depends-on = [ "nb-sync", "nb-execute" ] }
+# One-time pairing of a new .ipynb with a py:percent script.
+nb-pair = "jupytext --set-formats 'ipynb,py:percent' docs/examples/*.ipynb"
 
 [tool.pixi.feature.docs.tasks]
 build-docs = "mkdocs build --strict"
@@ -203,8 +216,10 @@ lint.per-file-ignores."catsmoothing/tests/*.py" = [
   "S101",
 ]
 lint.per-file-ignores."docs/**/*.py" = [ "INP001" ]
-lint.per-file-ignores."docs/examples/*.ipynb" = [
-  "EM", # notebooks raise with inline messages
+lint.per-file-ignores."docs/examples/*.{ipynb,py}" = [
+  "D100",   # notebooks have no module docstring
+  "EM",     # notebooks raise with inline messages
+  "ERA001", # jupytext headers look like commented-out code
 ]
 lint.per-file-ignores."scripts/*.py" = [ "INP001" ]
 lint.extend-safe-fixes = [
@@ -270,6 +285,11 @@ paths.source = [ "catsmoothing", "*/site-packages" ]
 report.omit = [ "**/__init__.py" ]
 report.exclude_lines = [ "if TYPE_CHECKING:" ]
 report.ignore_errors = true
+
+[tool.jupytext]
+formats = "ipynb,py:percent"
+notebook_metadata_filter = "kernelspec,jupytext"
+cell_metadata_filter = "-all"
 
 [tool.git-cliff]
 [tool.git-cliff.changelog]
