@@ -92,6 +92,12 @@ catsmoothing = { path = ".", editable = true }
 
 [tool.pixi.tasks]
 preinstall = "maturin develop --uv"
+# Tags only a commit already on origin/main whose pyproject.toml and Cargo.toml carry the
+# tag's version. An optional notes file becomes the tag message.
+release = { cmd = "grep -q '^version = \"{{ version | replace(\"v\", \"\") }}\"$' pyproject.toml && grep -q '^version = \"{{ version | replace(\"v\", \"\") }}\"$' Cargo.toml && git fetch origin main && git merge-base --is-ancestor HEAD origin/main && git tag -a {{ version }} {% if notes %}-F {{ notes }}{% else %}-m {{ version }}{% endif %} && git push origin refs/tags/{{ version }}", args = [
+  { arg = "version" },
+  { arg = "notes", default = "" },
+] }
 
 [tool.pixi.feature.benchmark.tasks]
 benchmark = { cmd = [ "pytest", "catsmoothing/tests", "--codspeed" ], depends-on = [ "preinstall" ] }
