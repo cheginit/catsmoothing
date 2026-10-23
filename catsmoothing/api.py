@@ -416,10 +416,12 @@ def linestrings_tangent_angles(
     Returns
     -------
     np.ndarray or list of np.ndarray
-        Signed tangent angles in radians.
+        Signed tangent angles in radians. ``LinearRing`` inputs use periodic splines,
+        so the first and last angles match.
     """
     lines = np.atleast_1d(lines)  # pyright: ignore[reportCallIssue,reportArgumentType]
-    if np.any(~np.isin(shapely.get_type_id(lines), [1, 2])):
+    geo_types = shapely.get_type_id(lines)
+    if np.any(~np.isin(geo_types, [1, 2])):
         raise TypeError("`lines` must be a list shapely.LineString")
 
     coords, offsets = _stack(lines)  # pyright: ignore[reportArgumentType]
@@ -429,6 +431,7 @@ def linestrings_tangent_angles(
         _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
         sigma_units,
         taubin_iterations,
+        geo_types == 2,
     )
     angles = np.split(flat, np.cumsum(counts)[:-1])
     if len(angles) == 1:

@@ -62,6 +62,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The last point of a curve is returned exactly, so smoothed rings close exactly. At
     projected-CRS magnitudes rounding left them open by about 1e-9, and shapely then
     appended an extra closing vertex.
+- `linestrings_tangent_angles` fits `LinearRing` inputs with periodic splines, so the
+    first and last angles (the same vertex) agree. Natural ends gave two different
+    angles at the seam.
 - Open two-vertex lines no longer fail with "Internal error in tangent calculation";
     they produce a straight segment.
 - `CatmullRom.evaluate` with `n=1` or `n=2` now returns derivatives with respect to the
