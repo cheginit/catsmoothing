@@ -4,13 +4,17 @@ site_description = "Smoothing Shapely geometries with Catmull-Rom splines."
 site_url = "https://cheginit.github.io/catsmoothing/"
 repo_url = "https://github.com/cheginit/catsmoothing"
 repo_name = "cheginit/catsmoothing"
+edit_uri = "edit/main/docs/"
 
 # No nav key: the nav mirrors docs/, so a new example notebook appears without an edit.
 
 [project.theme]
 logo = "assets/logo.png"
 favicon = "assets/logo.png"
+font.text = "Red Hat Text"
+font.code = "JetBrains Mono"
 features = [
+  "content.action.edit",
   "content.code.copy",
   "navigation.footer",
   # docs/examples/index.md is the Examples section page, not a child of it.
@@ -32,6 +36,18 @@ media = "(prefers-color-scheme: dark)"
 scheme = "slate"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to light mode"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/x-twitter"
+link = "https://twitter.com/_taher_"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/linkedin"
+link = "https://www.linkedin.com/in/tchegini"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/cheginit"
 
 [project.markdown_extensions]
 admonition = {}
