@@ -43,6 +43,24 @@ fn smooth_options(sigma: Option<f64>, bc_type: Option<BoundaryCondition>) -> Spl
     }
 }
 
+/// Noisy samples of a Gaussian bump, the profile the Python benchmarks use.
+fn noisy_bump(rng: &mut StdRng, n: usize) -> Vec<[f64; 2]> {
+    (0..n)
+        .map(|i| {
+            let x = -3.0 + 5.5 * i as f64 / (n - 1) as f64;
+            let noise: f64 = StandardNormal.sample(rng);
+            [x, (-x * x).exp() + 0.1 * noise]
+        })
+        .collect()
+}
+
+fn polyline_length(points: &[[f64; 2]]) -> f64 {
+    points
+        .windows(2)
+        .map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1]))
+        .sum()
+}
+
 fn assert_close(a: &[f64], b: &[f64], tol: f64) {
     assert_eq!(a.len(), b.len(), "Arrays must have same length");
     for (x, y) in a.iter().zip(b.iter()) {
@@ -198,22 +216,8 @@ fn test_invalid_input() {
 #[test]
 fn test_smooth_linestring_np() {
     let mut rng = StdRng::seed_from_u64(123);
-    let vertices: Vec<[f64; 2]> = (0..50)
-        .map(|i| {
-            let x = -3.0 + i as f64 * (2.5 - (-3.0)) / 49.0;
-            let noise: f64 = StandardNormal.sample(&mut rng);
-            let y = (-x.powi(2)).exp() + 0.1 * noise;
-            [x, y]
-        })
-        .collect();
-    let line_length: f64 = vertices
-        .windows(2)
-        .map(|w| {
-            let dx = w[1][0] - w[0][0];
-            let dy = w[1][1] - w[0][1];
-            (dx * dx + dy * dy).sqrt()
-        })
-        .sum();
+    let vertices = noisy_bump(&mut rng, 50);
+    let line_length: f64 = polyline_length(&vertices);
 
     let smoothed = smooth_linestring(
         vertices,
@@ -226,36 +230,15 @@ fn test_smooth_linestring_np() {
     assert_eq!(smoothed.len(), 30);
 
     // Check that length of smoothed line is close to input length
-    let smoothed_length: f64 = smoothed
-        .windows(2)
-        .map(|w| {
-            let dx = w[1][0] - w[0][0];
-            let dy = w[1][1] - w[0][1];
-            (dx * dx + dy * dy).sqrt()
-        })
-        .sum();
+    let smoothed_length: f64 = polyline_length(&smoothed);
     assert_close(&[line_length], &[smoothed_length], 2.8);
 }
 
 #[test]
 fn test_smooth_linestring_dist() {
     let mut rng = StdRng::seed_from_u64(123);
-    let vertices: Vec<[f64; 2]> = (0..50)
-        .map(|i| {
-            let x = -3.0 + i as f64 * (2.5 - (-3.0)) / 49.0;
-            let noise: f64 = StandardNormal.sample(&mut rng);
-            let y = (-x.powi(2)).exp() + 0.1 * noise;
-            [x, y]
-        })
-        .collect();
-    let orig_length: f64 = vertices
-        .windows(2)
-        .map(|w| {
-            let dx = w[1][0] - w[0][0];
-            let dy = w[1][1] - w[0][1];
-            (dx * dx + dy * dy).sqrt()
-        })
-        .sum();
+    let vertices = noisy_bump(&mut rng, 50);
+    let orig_length: f64 = polyline_length(&vertices);
 
     let smoothed = smooth_linestring(
         vertices,
@@ -275,46 +258,16 @@ fn test_smooth_linestring_dist() {
     assert!(arc_span * n_spans / (n_spans - 1.0) > 0.2);
 
     // Check that length of smoothed line is close to input length
-    let smoothed_length: f64 = smoothed
-        .windows(2)
-        .map(|w| {
-            let dx = w[1][0] - w[0][0];
-            let dy = w[1][1] - w[0][1];
-            (dx * dx + dy * dy).sqrt()
-        })
-        .sum();
+    let smoothed_length: f64 = polyline_length(&smoothed);
     assert_close(&[orig_length], &[smoothed_length], 2.8);
 }
 
 #[test]
 fn test_smooth_linestrings() {
     let mut rng = StdRng::seed_from_u64(123);
-    let lines: Vec<Vec<[f64; 2]>> = (0..3)
-        .map(|_| {
-            (0..50)
-                .map(|i| {
-                    let x = -3.0 + i as f64 * (2.5 - (-3.0)) / 49.0;
-                    let noise: f64 = StandardNormal.sample(&mut rng);
-                    let y = (-x.powi(2)).exp() + 0.1 * noise;
-                    [x, y]
-                })
-                .collect()
-        })
-        .collect();
+    let lines: Vec<Vec<[f64; 2]>> = (0..3).map(|_| noisy_bump(&mut rng, 50)).collect();
 
-    let line_lengths: Vec<f64> = lines
-        .iter()
-        .map(|vertices| {
-            vertices
-                .windows(2)
-                .map(|w| {
-                    let dx = w[1][0] - w[0][0];
-                    let dy = w[1][1] - w[0][1];
-                    (dx * dx + dy * dy).sqrt()
-                })
-                .sum()
-        })
-        .collect();
+    let line_lengths: Vec<f64> = lines.iter().map(|v| polyline_length(v)).collect();
 
     let spacings = [
         Spacing::Count(30),
@@ -347,14 +300,7 @@ fn test_smooth_linestrings() {
 
     // Check that the smoothed line lengths are close to the original lengths
     for (smoothed, &orig_length) in smoothed_lines.iter().zip(&line_lengths) {
-        let smoothed_length: f64 = smoothed
-            .windows(2)
-            .map(|w| {
-                let dx = w[1][0] - w[0][0];
-                let dy = w[1][1] - w[0][1];
-                (dx * dx + dy * dy).sqrt()
-            })
-            .sum();
+        let smoothed_length: f64 = polyline_length(smoothed);
         assert_close(&[orig_length], &[smoothed_length], 2.9);
     }
 }
