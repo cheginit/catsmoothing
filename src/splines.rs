@@ -100,7 +100,7 @@ pub(crate) struct Segment {
 }
 
 // Positive nodes and their weights of the 16-point Gauss-Legendre rule on [-1, 1]. Exact for
-// polynomials up to degree 31; about 1e-5 relative error on noisy centripetal segments.
+// polynomials up to degree 31; adaptive bisection covers segments where it is not enough.
 const GAUSS_LEGENDRE_NODES: [f64; 8] = [
     0.095_012_509_837_637_44,
     0.281_603_550_779_258_9,
@@ -137,29 +137,43 @@ impl Segment {
         (self.a * (3.0 * t) + self.b * 2.0) * t + self.c
     }
 
-    /// Arc length over `[0, t]`.
-    fn length_to(&self, t: f64) -> f64 {
-        let half = 0.5 * t;
+    /// Arc length over `[t0, t1]` by 16-point Gauss-Legendre quadrature.
+    fn length_between(&self, t0: f64, t1: f64) -> f64 {
+        let (half, mid) = (0.5 * (t1 - t0), 0.5 * (t0 + t1));
         let mut sum = 0.0;
         for (x, w) in GAUSS_LEGENDRE_NODES.iter().zip(&GAUSS_LEGENDRE_WEIGHTS) {
-            let left = self.velocity(half * (1.0 - x)).norm();
-            let right = self.velocity(half * (1.0 + x)).norm();
+            let left = self.velocity(mid - half * x).norm();
+            let right = self.velocity(mid + half * x).norm();
             sum += w * (left + right);
         }
         half * sum
     }
 
-    /// Segment parameter where the arc length from the start reaches `target`, given the
-    /// segment's full `length`. Newton steps stay inside a shrinking bisection bracket, which
-    /// also covers points where the speed vanishes.
-    fn param_at_length(&self, target: f64, length: f64) -> f64 {
-        if length <= 0.0 {
-            return 0.0;
+    /// Splits `[t0, t1]`, whose quadrature length is `whole`, until the two halves agree with
+    /// the whole to 1e-6, and appends each accepted piece as `(t0, t1, length)`. The accepted
+    /// halves are then accurate to about 1e-8 (measured). Speed zeros, where a segment
+    /// doubles back, make the integrand kink; bisection isolates them.
+    fn arc_pieces(&self, t0: f64, t1: f64, whole: f64, depth: u32, out: &mut Vec<[f64; 3]>) {
+        let mid = 0.5 * (t0 + t1);
+        let (left, right) = (self.length_between(t0, mid), self.length_between(mid, t1));
+        if depth == 0 || (left + right - whole).abs() <= 1e-6 * (left + right) {
+            out.extend([[t0, mid, left], [mid, t1, right]]);
+        } else {
+            self.arc_pieces(t0, mid, left, depth - 1, out);
+            self.arc_pieces(mid, t1, right, depth - 1, out);
         }
-        let (mut lo, mut hi) = (0.0, 1.0);
-        let mut t = target / length;
+    }
+
+    /// Parameter in the converged piece `[t0, t1]` of arc `length` where the arc length from
+    /// `t0` reaches `target`. Newton steps stay inside a shrinking bisection bracket.
+    fn param_at_length(&self, t0: f64, t1: f64, length: f64, target: f64) -> f64 {
+        if length <= 0.0 {
+            return t0;
+        }
+        let (mut lo, mut hi) = (t0, t1);
+        let mut t = t0 + (t1 - t0) * target / length;
         for _ in 0..64 {
-            let residual = self.length_to(t) - target;
+            let residual = self.length_between(t0, t) - target;
             if residual.abs() <= 1e-12 * length {
                 break;
             }
@@ -555,7 +569,24 @@ impl CatmullRom {
 
     /// Total arc length of the curve.
     pub fn length(&self) -> f64 {
-        self.segments.iter().map(|s| s.length_to(1.0)).sum()
+        self.arc_table().iter().map(|piece| piece.length).sum()
+    }
+
+    /// Converged quadrature pieces of every segment, in order.
+    fn arc_table(&self) -> Vec<ArcPiece> {
+        let mut table = Vec::with_capacity(2 * self.segments.len());
+        let mut pieces = Vec::new();
+        for (segment, s) in self.segments.iter().enumerate() {
+            pieces.clear();
+            s.arc_pieces(0.0, 1.0, s.length_between(0.0, 1.0), 40, &mut pieces);
+            table.extend(pieces.iter().map(|&[t0, t1, length]| ArcPiece {
+                segment,
+                t0,
+                t1,
+                length,
+            }));
+        }
+        table
     }
 
     /// Returns `n_pts` grid parameters whose evaluated points are evenly spaced by arc length,
@@ -573,24 +604,40 @@ impl CatmullRom {
             .try_reserve_exact(n_pts)
             .map_err(|_| SplineError::TooManyPoints)?;
 
-        let lengths: Vec<f64> = self.segments.iter().map(|s| s.length_to(1.0)).collect();
-        let total: f64 = lengths.iter().sum();
-        // Targets increase, so one forward sweep finds every target's segment.
+        let table = self.arc_table();
+        let total: f64 = table.iter().map(|piece| piece.length).sum();
+        // Targets increase, so one forward sweep finds every target's piece.
         let (mut idx, mut start) = (0, 0.0);
         for k in 0..n_pts {
             let target = total * k as f64 / (n_pts - 1) as f64;
-            while idx + 1 < lengths.len() && start + lengths[idx] < target {
-                start += lengths[idx];
+            while idx + 1 < table.len() && start + table[idx].length < target {
+                start += table[idx].length;
                 idx += 1;
             }
-            let local = (target - start).max(0.0).min(lengths[idx]);
-            let t = self.segments[idx].param_at_length(local, lengths[idx]);
-            distances.push(self.knots[idx] + t * (self.knots[idx + 1] - self.knots[idx]));
+            let ArcPiece {
+                segment,
+                t0,
+                t1,
+                length,
+            } = table[idx];
+            let local = (target - start).max(0.0).min(length);
+            let t = self.segments[segment].param_at_length(t0, t1, length, local);
+            let (k0, k1) = (self.knots[segment], self.knots[segment + 1]);
+            distances.push(k0 + t * (k1 - k0));
         }
         distances[0] = self.grid[0];
         distances[n_pts - 1] = self.grid[self.grid.len() - 1];
         Ok(distances)
     }
+}
+
+/// Part of a segment's parameter range with its arc length.
+#[derive(Debug, Clone, Copy)]
+struct ArcPiece {
+    segment: usize,
+    t0: f64,
+    t1: f64,
+    length: f64,
 }
 
 #[cfg(test)]

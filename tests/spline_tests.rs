@@ -673,9 +673,8 @@ fn test_uniform_distances_equal_arc_length_on_noisy_line() {
         for span in spans {
             worst = worst.max((span - mean).abs() / mean);
         }
-        // 16-point Gauss-Legendre is accurate to about 1e-5 on sharply bent segments.
         assert!(
-            worst < 1e-4,
+            worst < 1e-6,
             "{bc_type:?}: relative spacing deviation {worst:.2e}"
         );
     }
@@ -919,4 +918,29 @@ fn test_alpha_overrides_grid_and_still_drops_repeats() {
         None,
     );
     assert_eq!(overflow.unwrap_err(), SplineError::InvalidGrid);
+}
+
+#[test]
+fn test_uniform_distances_across_a_reversal() {
+    // With a uniform grid, the curve doubles back between the two close middle vertices, so
+    // the speed passes through zero inside a segment.
+    let spline = fit(
+        vec![[0.0, 0.0], [1.0, 0.0], [1.01, 0.0], [2.0, 0.0]],
+        None,
+        None,
+        BoundaryCondition::Natural,
+        None,
+    )
+    .unwrap();
+    let distances = spline.uniform_distances(101).unwrap();
+    let spans: Vec<f64> = distances
+        .windows(2)
+        .map(|w| sampled_arc_length(&spline, w[0], w[1]))
+        .collect();
+    let mean = spans.iter().sum::<f64>() / spans.len() as f64;
+    let worst = spans
+        .iter()
+        .map(|s| (s - mean).abs() / mean)
+        .fold(0.0, f64::max);
+    assert!(worst < 1e-6, "relative spacing deviation {worst:.2e}");
 }
