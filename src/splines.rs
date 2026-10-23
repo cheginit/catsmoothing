@@ -1,4 +1,5 @@
 use crate::error::SplineError;
+use crate::presmooth;
 use crate::utils::ends_coincide;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::ops::{Add, Mul, Sub};
@@ -52,14 +53,6 @@ impl Mul<f64> for Vec2D {
     fn mul(self, factor: f64) -> Self {
         Self::new(self.x * factor, self.y * factor)
     }
-}
-
-/// Reflects `k` into `0..n` about both ends without repeating the edge sample, for any
-/// kernel reach (`... c b | a b c d | c b a ...`). Requires `n >= 2`.
-fn mirror_index(k: isize, n: usize) -> usize {
-    let period = 2 * (n as isize - 1);
-    let m = k.rem_euclid(period);
-    (if m >= n as isize { period - m } else { m }) as usize
 }
 
 /// End conditions of a spline.
@@ -181,7 +174,8 @@ impl CatmullRom {
     ///
     /// `alpha` builds the grid from chord lengths raised to `alpha` (`0.5` is centripetal,
     /// `0` uniform, `1` chordal) and takes precedence over `grid`; with neither, the grid is
-    /// `0, 1, 2, ...`. `gaussian_sigma` smooths the vertices first, keeping the end vertices.
+    /// `0, 1, 2, ...`. `gaussian_sigma` (in vertices) smooths the vertices first: open lines
+    /// keep their end vertices and reflect through them, closed rings wrap around.
     /// Closed curves append the first vertex unless the last vertex already matches it.
     /// Without an explicit `grid`, repeated consecutive vertices are dropped.
     ///
@@ -231,10 +225,12 @@ impl CatmullRom {
             vertices
         };
 
-        let vertices_vec: Vec<Vec2D> = if let Some(sigma) = gaussian_sigma {
-            Self::gaussian_smoothing(&vertices, sigma)
-        } else {
-            vertices.iter().map(|&v| Vec2D::new(v[0], v[1])).collect()
+        let vertices_vec: Vec<Vec2D> = vertices.iter().map(|&v| Vec2D::new(v[0], v[1])).collect();
+        let vertices_vec = match gaussian_sigma {
+            Some(sigma) => {
+                presmooth::gaussian(&vertices_vec, sigma, bc_type == BoundaryCondition::Closed)
+            }
+            None => vertices_vec,
         };
 
         let grid = Self::get_grid(grid, alpha, &vertices_vec)?;
@@ -247,58 +243,6 @@ impl CatmullRom {
     /// Parameter value at each vertex.
     pub fn grid(&self) -> &[f64] {
         &self.grid
-    }
-
-    fn gaussian_smoothing(vertices: &[[f64; 2]], sigma: f64) -> Vec<Vec2D> {
-        let vec_vertices: Vec<Vec2D> = vertices.iter().map(|&v| Vec2D::new(v[0], v[1])).collect();
-
-        let n_verts = vec_vertices.len();
-        if n_verts <= 2 || sigma <= 1e-6 {
-            return vec_vertices;
-        }
-
-        // Truncate kernel at 4 sigma for good approximation
-        let truncate = 4.0;
-        let kernel_size = (2 * (truncate * sigma).ceil() as usize) + 1;
-        let center = kernel_size / 2;
-        let inv_sigma2 = 1.0 / (2.0 * sigma * sigma);
-
-        // Pre-compute kernel for efficiency
-        let mut kernel = Vec::with_capacity(kernel_size);
-        let mut kernel_sum = 0.0;
-        for i in 0..kernel_size {
-            let x = i as f64 - center as f64;
-            let val = (-x * x * inv_sigma2).exp();
-            kernel.push(val);
-            kernel_sum += val;
-        }
-
-        // Normalize kernel
-        let inv_kernel_sum = 1.0 / kernel_sum;
-        for k in &mut kernel {
-            *k *= inv_kernel_sum;
-        }
-
-        // Pre-allocate result vector
-        let mut smoothed_vertices = Vec::with_capacity(n_verts);
-        smoothed_vertices.push(vec_vertices[0]);
-
-        // Only smooth interior points, preserve endpoints
-        for i in 1..n_verts - 1 {
-            let mut smoothed_x = 0.0;
-            let mut smoothed_y = 0.0;
-
-            for j in 0..kernel_size {
-                let idx = mirror_index(i as isize + j as isize - center as isize, n_verts);
-                smoothed_x += vec_vertices[idx].x * kernel[j];
-                smoothed_y += vec_vertices[idx].y * kernel[j];
-            }
-
-            smoothed_vertices.push(Vec2D::new(smoothed_x, smoothed_y));
-        }
-
-        smoothed_vertices.push(vec_vertices[n_verts - 1]);
-        smoothed_vertices
     }
 
     /// Builds the knot grid. `alpha` takes precedence over an explicit `grid`; with neither,

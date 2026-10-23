@@ -567,7 +567,7 @@ fn test_uniform_distances_respects_grid_origin() {
 
 #[test]
 fn test_gaussian_smoothing_kernel_wider_than_line() {
-    // sigma = 2 reaches 8 vertices on each side of a 3-vertex line, so the mirror must repeat.
+    // sigma = 2 reaches 8 vertices on each side of a 3-vertex line, so reflections repeat.
     let sigma = 2.0_f64;
     let spline = CatmullRom::new(
         vec![[0.0, 0.0], [1.0, 10.0], [2.0, 0.0]],
@@ -579,14 +579,13 @@ fn test_gaussian_smoothing_kernel_wider_than_line() {
     .unwrap();
     let middle = spline.evaluate(&[spline.grid()[1]], 0).unwrap()[0];
 
-    // Reference: mirror sequence for index 1 + k with period 4 visits x = [0, 1, 2, 1].
+    // Point reflection through both ends extends x = k and y = 10 sin(pi k / 2).
     let radius = (4.0 * sigma).ceil() as i64;
     let (mut x, mut y, mut total) = (0.0, 0.0, 0.0);
     for k in -radius..=radius {
         let w = (-((k * k) as f64) / (2.0 * sigma * sigma)).exp();
-        let m = (1 + k).rem_euclid(4);
-        x += w * [0.0, 1.0, 2.0, 1.0][m as usize];
-        y += w * [0.0, 10.0, 0.0, 10.0][m as usize];
+        x += w * (1 + k) as f64;
+        y += w * 10.0 * (std::f64::consts::FRAC_PI_2 * (1 + k) as f64).sin();
         total += w;
     }
     assert_close(&middle, &[x / total, y / total], 1e-12);
@@ -682,4 +681,64 @@ fn test_uniform_distances_equal_arc_length_on_noisy_line() {
             "{bc_type:?}: relative spacing deviation {worst:.2e}"
         );
     }
+}
+
+#[test]
+fn test_gaussian_smoothing_keeps_straight_lines() {
+    // Unevenly spaced collinear vertices stay on their line.
+    let vertices: Vec<[f64; 2]> = [0.0, 0.3, 1.0, 1.2, 2.5, 3.0, 4.6, 5.0]
+        .iter()
+        .map(|&t| [t, 2.0 * t + 1.0])
+        .collect();
+    let spline = CatmullRom::new(
+        vertices,
+        None,
+        Some(0.5),
+        BoundaryCondition::Natural,
+        Some(2.0),
+    )
+    .unwrap();
+    for p in spline.evaluate(spline.grid(), 0).unwrap() {
+        assert!(
+            (p[1] - (2.0 * p[0] + 1.0)).abs() < 1e-12,
+            "{p:?} left the line"
+        );
+    }
+
+    // Evenly spaced vertices do not move at all, even next to the ends.
+    let even: Vec<[f64; 2]> = (0..9).map(|i| [i as f64, 2.0 * i as f64 + 1.0]).collect();
+    let spline = CatmullRom::new(
+        even.clone(),
+        None,
+        Some(0.5),
+        BoundaryCondition::Natural,
+        Some(2.0),
+    )
+    .unwrap();
+    for (p, v) in spline.evaluate(spline.grid(), 0).unwrap().iter().zip(&even) {
+        assert_close(p, v, 1e-12);
+    }
+}
+
+#[test]
+fn test_gaussian_smoothing_treats_ring_seam_like_other_vertices() {
+    let n = 12;
+    let ring: Vec<[f64; 2]> = (0..n)
+        .map(|i| {
+            let a = std::f64::consts::TAU * i as f64 / n as f64;
+            [a.cos(), a.sin()]
+        })
+        .collect();
+    let spline =
+        CatmullRom::new(ring, None, Some(0.5), BoundaryCondition::Closed, Some(1.0)).unwrap();
+    let radii: Vec<f64> = spline
+        .evaluate(spline.grid(), 0)
+        .unwrap()
+        .iter()
+        .map(|p| p[0].hypot(p[1]))
+        .collect();
+    for r in &radii {
+        assert!((r - radii[0]).abs() < 1e-12, "radii differ: {radii:?}");
+    }
+    assert!(radii[0] < 1.0, "Gaussian smoothing shrinks a ring");
 }
