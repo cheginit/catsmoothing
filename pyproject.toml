@@ -26,38 +26,42 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [ "numpy>=2", "shapely>=2" ]
-optional-dependencies.benchmark = [
-  "pytest-codspeed",
-]
-optional-dependencies.dev = [
+urls.Changelog = "https://github.com/cheginit/catsmoothing/blob/main/CHANGELOG.md"
+urls.CI = "https://github.com/cheginit/catsmoothing/actions"
+urls.Homepage = "https://github.com/cheginit/catsmoothing"
+urls.Issues = "https://github.com/cheginit/catsmoothing/issues"
+
+[dependency-groups]
+dev = [
   "ipykernel",
   "ipywidgets",
   "matplotlib",
-  "pytest",
+  { include-group = "test" },
+  { include-group = "typecheck" },
 ]
-optional-dependencies.docs = [
+test = [
+  "coverage[toml]",
+  "pytest",
+  "pytest-cov",
+  "pytest-sugar",
+]
+docs = [
   "black",
   "mkdocs",
   "mkdocs-jupyter",
   "mkdocs-materialx",
   "mkdocstrings-python",
 ]
-optional-dependencies.lint = [
+benchmark = [
+  "pytest-codspeed",
+]
+lint = [
   "codespell",
   "pre-commit",
 ]
-optional-dependencies.test = [
-  "coverage[toml]",
-  "pytest-cov",
-  "pytest-sugar",
-]
-optional-dependencies.typecheck = [
+typecheck = [
   "pyright",
 ]
-urls.Changelog = "https://github.com/cheginit/catsmoothing/blob/main/CHANGELOG.md"
-urls.CI = "https://github.com/cheginit/catsmoothing/actions"
-urls.Homepage = "https://github.com/cheginit/catsmoothing"
-urls.Issues = "https://github.com/cheginit/catsmoothing/issues"
 
 [tool.maturin]
 module-name = "catsmoothing._catsmoothing"
