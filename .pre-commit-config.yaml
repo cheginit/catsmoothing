@@ -44,6 +44,13 @@ repos:
     name: Formatting with Ruff
     types_or: [python, jupyter]
 
+- repo: https://github.com/jendrikseipp/vulture
+  rev: v2.16
+  hooks:
+  - id: vulture
+    name: Detect dead code with vulture
+    pass_filenames: false
+
 - repo: https://github.com/PyCQA/doc8
   rev: v2.0.0
   hooks:

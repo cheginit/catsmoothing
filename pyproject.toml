@@ -104,7 +104,7 @@ docs = { cmd = [ "mkdocs", "serve" ], depends-on = [ "preinstall", "build-docs" 
 cargo-audit = "*"
 
 [tool.pixi.feature.lint.tasks]
-lint = "pre-commit run --all-files"
+lint = "pre-commit run --all-files && python scripts/lint_untracked.py"
 # Resolves the runtime dependencies from PyPI, as an install would, and checks them and
 # Cargo.lock against the advisory databases. Needs network access.
 audit = "pysentry-rs . --fail-on low --requirements-files scripts/audit-requirements.txt && cargo audit"
@@ -192,6 +192,7 @@ lint.per-file-ignores."docs/**/*.py" = [ "INP001" ]
 lint.per-file-ignores."docs/examples/*.ipynb" = [
   "EM", # notebooks raise with inline messages
 ]
+lint.per-file-ignores."scripts/*.py" = [ "INP001" ]
 lint.extend-safe-fixes = [
   # module level imports
   "E402",
@@ -209,6 +210,13 @@ lint.pydocstyle.convention = "numpy"
 [tool.codespell]
 ignore-words-list = "crate,gages"
 skip = "__pycache__,_build,.mypy_cache,.git,./htmlcov,cache,pixi.lock,**.ipynb,./target,./site/"
+
+[tool.vulture]
+paths = [ "catsmoothing", "conftest.py", "docs", "scripts" ]
+ignore_names = [ "test_*" ]
+ignore_decorators = [ "@pytest.fixture", "@pytest.mark.*" ]
+# Only unused imports, unused arguments, and unreachable code reach 80% confidence.
+min_confidence = 80
 
 [tool.pyproject-fmt]
 max_supported_python = "3.15"
