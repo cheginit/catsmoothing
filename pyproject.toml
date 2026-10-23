@@ -95,9 +95,9 @@ catsmoothing = { path = ".", editable = true }
 
 [tool.pixi.tasks]
 preinstall = "maturin develop --uv"
-# Tags only a commit already on origin/main whose pyproject.toml and Cargo.toml carry the
-# tag's version. An optional notes file becomes the tag message.
-release = { cmd = "grep -q '^version = \"{{ version | replace(\"v\", \"\") }}\"$' pyproject.toml && grep -q '^version = \"{{ version | replace(\"v\", \"\") }}\"$' Cargo.toml && git fetch origin main && git merge-base --is-ancestor HEAD origin/main && git tag -a {{ version }} {% if notes %}-F {{ notes }}{% else %}-m {{ version }}{% endif %} && git push origin refs/tags/{{ version }}", args = [
+# Tags only a commit already on origin/main whose committed pyproject.toml and Cargo.toml
+# carry the tag's version. An optional notes file becomes the tag message.
+release = { cmd = "git show HEAD:pyproject.toml | grep -q '^version = \"{{ version | replace(\"v\", \"\") }}\"$' && git show HEAD:Cargo.toml | grep -q '^version = \"{{ version | replace(\"v\", \"\") }}\"$' && git fetch origin main && git merge-base --is-ancestor HEAD origin/main && git tag -a {{ version }} {% if notes %}-F {{ notes }}{% else %}-m {{ version }}{% endif %} && git push origin refs/tags/{{ version }}", args = [
   { arg = "version" },
   { arg = "notes", default = "" },
 ] }
