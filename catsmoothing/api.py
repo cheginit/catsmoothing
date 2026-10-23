@@ -85,8 +85,9 @@ class CatmullRom:
     taubin_iterations : int, optional
         Number of Taubin lambda/mu smoothing iterations (lambda 0.5, mu -0.53)
         applied to the vertices before fitting, by default None. Each iteration
-        is one lambda step and one mu step; it damps vertex jitter while keeping
-        the curve's overall size. Cannot be combined with a Gaussian sigma.
+        is one lambda step and one mu step; it damps vertex jitter and keeps the
+        size of curves drawn with more than about a dozen vertices per turn.
+        Cannot be combined with a Gaussian sigma.
     continuity : {"c1", "g2", "c2"}, optional
         Smoothness where spline pieces join, by default ``"c1"`` (Catmull-Rom
         tangent continuity). ``"g2"`` makes curvature continuous and follows the
@@ -319,8 +320,9 @@ def smooth_linestrings(
     taubin_iterations : int, optional
         Number of Taubin lambda/mu smoothing iterations (lambda 0.5, mu -0.53)
         applied to the vertices before fitting, by default None. Each iteration
-        is one lambda step and one mu step; it damps vertex jitter while keeping
-        the curve's overall size. Cannot be combined with a Gaussian sigma.
+        is one lambda step and one mu step; it damps vertex jitter and keeps the
+        size of curves drawn with more than about a dozen vertices per turn.
+        Cannot be combined with a Gaussian sigma.
     continuity : {"c1", "g2", "c2"}, optional
         Smoothness where spline pieces join, by default ``"c1"`` (Catmull-Rom
         tangent continuity). ``"g2"`` makes curvature continuous and follows the
@@ -412,8 +414,9 @@ def linestrings_tangent_angles(
     taubin_iterations : int, optional
         Number of Taubin lambda/mu smoothing iterations (lambda 0.5, mu -0.53)
         applied to the vertices before fitting, by default None. Each iteration
-        is one lambda step and one mu step; it damps vertex jitter while keeping
-        the curve's overall size. Cannot be combined with a Gaussian sigma.
+        is one lambda step and one mu step; it damps vertex jitter and keeps the
+        size of curves drawn with more than about a dozen vertices per turn.
+        Cannot be combined with a Gaussian sigma.
 
     Returns
     -------
@@ -520,8 +523,9 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     taubin_iterations : int, optional
         Number of Taubin lambda/mu smoothing iterations (lambda 0.5, mu -0.53)
         applied to the vertices before fitting, by default None. Each iteration
-        is one lambda step and one mu step; it damps vertex jitter while keeping
-        the curve's overall size. Cannot be combined with a Gaussian sigma.
+        is one lambda step and one mu step; it damps vertex jitter and keeps the
+        size of curves drawn with more than about a dozen vertices per turn.
+        Cannot be combined with a Gaussian sigma.
     continuity : {"c1", "g2", "c2"}, optional
         Smoothness where spline pieces join, by default ``"c1"`` (Catmull-Rom
         tangent continuity). ``"g2"`` makes curvature continuous and follows the

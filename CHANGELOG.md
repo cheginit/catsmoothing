@@ -14,8 +14,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     spaced vertices are smoothed evenly. Available on `CatmullRom`,
     `smooth_linestrings`, `smooth_polygon`, and `linestrings_tangent_angles`.
 - `taubin_iterations` applies Taubin lambda/mu smoothing (lambda 0.5, mu -0.53) to the
-    vertices before fitting. It damps jitter while keeping a curve's size, where
-    Gaussian smoothing shrinks it. Available on the same functions as `sigma_units`.
+    vertices before fitting. It damps jitter and keeps the size of curves drawn with
+    more than about a dozen vertices per turn, which Gaussian smoothing shrinks.
+    Available on the same functions as `sigma_units`.
 - `continuity="g2"` or `"c2"` makes curvature (G2), or also the second derivative (C2),
     continuous where spline pieces join, using Yuksel's continuity-enhancing splits
     (SIGGRAPH 2026). Each piece becomes three cubics; vertices and their tangents are
