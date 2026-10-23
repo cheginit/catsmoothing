@@ -3,7 +3,7 @@
 # pyright: reportMissingImports=false
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 import shapely
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
     FloatArray = NDArray[np.float64]
     BCType = Literal["natural", "closed", "clamped"]
-    PolygonType = TypeVar("PolygonType", Polygon, MultiPolygon)
 
 __all__ = ["CatmullRom", "linestrings_tangent_angles", "smooth_linestrings", "smooth_polygon"]
 
@@ -352,7 +351,7 @@ def _poly_smooth(
     return shapely.make_valid(poly)  # pyright: ignore[reportReturnType]
 
 
-def smooth_polygon(
+def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     polygon: PolygonType,
     distance: float | None = None,
     n_pts: int | None = None,
