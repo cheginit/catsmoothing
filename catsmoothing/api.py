@@ -54,7 +54,7 @@ class CatmullRom:
     Parameters
     ----------
     vertices : array_like
-        Sequence of (x, y) or (x, y, z) vertices.
+        Sequence of (x, y) vertices, shape ``(n, 2)``.
     grid : array_like, optional
         Sequence of parameter values. Must be strictly increasing.
         If not specified, a uniform grid is used (0, 1, 2, 3, ...).
@@ -92,7 +92,7 @@ class CatmullRom:
 
     def __init__(
         self,
-        vertices: list[tuple[float, float]] | list[tuple[float, float, float]] | FloatArray,
+        vertices: list[tuple[float, float]] | FloatArray,
         grid: list[float] | FloatArray | None = None,
         alpha: float | None = None,
         bc_type: BCType = "natural",
