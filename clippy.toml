@@ -1,0 +1,5 @@
+# Google Rust style guide, "Prefer expect over unwrap": tests may unwrap.
+allow-unwrap-in-tests = true
+disallowed-methods = [
+  { path = "std::panic::catch_unwind", reason = "Google Rust style guide: don't call panic::catch_unwind" },
+]

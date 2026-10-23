@@ -638,7 +638,9 @@ fn sampled_arc_length(spline: &CatmullRom, from: f64, to: f64) -> f64 {
     let d: Vec<f64> = (0..=n)
         .map(|i| from + (to - from) * i as f64 / n as f64)
         .collect();
-    let p = spline.evaluate(&d, 0).unwrap();
+    let p = spline
+        .evaluate(&d, 0)
+        .expect("distances span the grid, so evaluation succeeds");
     p.windows(2)
         .map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1]))
         .sum()
@@ -741,8 +743,12 @@ fn test_gaussian_smoothing_treats_ring_seam_like_other_vertices() {
 
 /// Signed curvature at each distance.
 fn curvature(spline: &CatmullRom, distances: &[f64]) -> Vec<f64> {
-    let d1 = spline.evaluate(distances, 1).unwrap();
-    let d2 = spline.evaluate(distances, 2).unwrap();
+    let d1 = spline
+        .evaluate(distances, 1)
+        .expect("first derivatives exist for a cubic spline");
+    let d2 = spline
+        .evaluate(distances, 2)
+        .expect("second derivatives exist for a cubic spline");
     d1.iter()
         .zip(&d2)
         .map(|(v, a)| (v[0] * a[1] - v[1] * a[0]) / v[0].hypot(v[1]).powi(3))

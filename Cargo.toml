@@ -35,3 +35,18 @@ optional = true
 [features]
 default = []
 python = ["pyo3", "numpy"]
+
+# Each lint enforces a rule of the Google Rust style guide; .agents/skills/rust-style holds
+# the rules no lint checks. clippy.toml configures the test exemptions.
+[lints.clippy]
+fn_params_excessive_bools = "warn"
+missing_assert_message = "warn"
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+must_use_candidate = "warn"
+needless_for_each = "warn"
+needless_pass_by_value = "warn"
+string_add = "warn"
+undocumented_unsafe_blocks = "warn"
+unwrap_used = "warn"
+wildcard_imports = "warn"
