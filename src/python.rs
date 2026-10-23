@@ -116,7 +116,7 @@ fn validate_array_length(arr_len: usize, expected: usize, name: &str) -> PyResul
 /// Parameters:
 ///   - coords: all lines' coordinates stacked, shape (n, 2)
 ///   - offsets: start of each line in `coords`, plus the total count (n_lines + 1 entries)
-///   - gaussian_sigmas: optional list of Option<f64> (one per linestring)
+///   - gaussian_sigmas: optional 1D NumPy array (one per linestring)
 ///
 /// Returns:
 ///   - tangent angles of all lines stacked, and the count per line.
@@ -131,16 +131,15 @@ fn linestrings_tangent_angles(
     py: Python,
     coords: PyReadonlyArray2<f64>,
     offsets: PyReadonlyArray1<i64>,
-    gaussian_sigmas: Option<Vec<Option<f64>>>,
+    gaussian_sigmas: Option<PyReadonlyArray1<f64>>,
     sigma_units: &str,
     taubin_iterations: Option<i64>,
 ) -> PyResult<Stacked<PyArray1<f64>>> {
     let units: SigmaUnits = sigma_units.parse()?;
     let line_vertices = split_lines(coords.as_array(), offsets.as_array())?;
     let n_lines = line_vertices.len();
-    let sigmas = gaussian_sigmas.unwrap_or_else(|| vec![None; n_lines]);
+    let sigmas = per_line(gaussian_sigmas, n_lines, "gaussian_sigmas")?;
     let taubin = taubin_setting(taubin_iterations, sigmas.iter().any(Option::is_some))?;
-    validate_array_length(sigmas.len(), n_lines, "gaussian_sigmas")?;
 
     let angles = py
         .detach(|| {

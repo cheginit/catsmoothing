@@ -31,7 +31,7 @@ class CatmullRom:
 def linestrings_tangent_angles(
     coords: FloatArray,
     offsets: IntArray,
-    gaussian_sigmas: list[float] | None = None,
+    gaussian_sigmas: FloatArray | None = None,
     sigma_units: Literal["vertices", "length"] = "vertices",
     taubin_iterations: int | None = None,
 ) -> tuple[FloatArray, IntArray]: ...
