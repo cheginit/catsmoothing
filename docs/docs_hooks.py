@@ -13,13 +13,12 @@ if TYPE_CHECKING:
 _ROOT = Path(__file__).parent.parent
 
 changelog = _ROOT / "CHANGELOG.md"
-contributing = _ROOT / "CONTRIBUTING.md"
 readme = _ROOT / "README.md"
 
 
 def on_files(files: Files, config: MkDocsConfig) -> Files:
     """Add root-level markdown files to the documentation site."""
-    for path in (changelog, contributing, readme):
+    for path in (changelog, readme):
         files.append(
             File(
                 path=path.name,

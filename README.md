@@ -142,7 +142,7 @@ For more examples, visit the [documentation](https://catsmoothing.readthedocs.io
 ## Contributing
 
 We welcome contributions! For guidelines, please refer to the
-[CONTRIBUTING.md](https://catsmoothing.readthedocs.io/latest/CONTRIBUTING) and
+[contributing guide](https://catsmoothing.readthedocs.io/latest/contributing/) and
 [CODE_OF_CONDUCT.md](https://github.com/cheginit/catsmoothing/blob/main/CODE_OF_CONDUCT.md).
 
 ## License
