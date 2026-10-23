@@ -26,10 +26,10 @@ pip install catsmoothing ipykernel ipywidgets matplotlib
 
 <div class="grid cards" markdown>
 
-- [![Basin Delineation](images/alpha.png){ loading=lazy }](splines.ipynb "Basin Delineation")
-    **Basin Delineation**
+- [![Catmull-Rom Spline](images/alpha.png){ loading=lazy }](splines.md "Catmull-Rom Spline")
+    **Catmull-Rom Spline**
 
-- [![What's New Since 0.4.1](images/arc_length.png){ loading=lazy }](whats_new.ipynb "What's New Since 0.4.1")
+- [![What's New Since 0.4.1](images/arc_length.png){ loading=lazy }](whats_new.md "What's New Since 0.4.1")
     **What's New Since 0.4.1**
 
 </div>

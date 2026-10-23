@@ -95,7 +95,12 @@ ENV/
 # Rope project settings
 .ropeproject
 
-# mkdocs documentation
+# Pages generated from the notebooks in docs/examples/ by `pixi r docs`
+/docs/examples/*.md
+!/docs/examples/index.md
+/docs/examples/*_files/
+
+# Docs site
 /site
 
 # mypy
