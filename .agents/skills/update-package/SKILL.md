@@ -56,13 +56,13 @@ runs (AGENTS.md, Gotchas). Then run, each to a clean exit:
 ```bash
 pixi r lint && pixi r typecheck && pixi r -e test313 test && pixi r -e test315 test &&
   cargo fmt --check && cargo clippy --features python --all-targets -- -D warnings &&
-  cargo test && pixi r build-docs && pixi r audit
+  cargo test && pixi r docs && pixi r audit
 ```
 
 - Lint runs the new hook versions over every file. When a formatter rewrites files, run
     lint once more and keep the rewrite for its own commit.
 - The docs build and the audit belong here even with no change under `docs/`: a new
-    mkdocs or mkdocstrings can break the build, and a new resolution can pull in an
+    zensical or mkdocstrings can break the build, and a new resolution can pull in an
     advisory.
 - A new clippy or rustc can add lints; fix them like any other finding.
 

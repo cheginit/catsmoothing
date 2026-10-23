@@ -16,7 +16,8 @@ docs/design.md it touches. -->
 - [ ] `cargo fmt --check`,
     `cargo clippy --features python --all-targets -- -D warnings`, and `cargo test`
     (needed when `src/`, `tests/`, or `Cargo.toml` changed)
-- [ ] `pixi r build-docs` (needed when `docs/`, `README.md`, or `mkdocs.yml` changed)
+- [ ] `pixi r docs` (needed when `docs/`, `README.md`, `CHANGELOG.md`, or
+    `zensical.toml` changed)
 
 ## Risk and revert
 

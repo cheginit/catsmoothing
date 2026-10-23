@@ -66,8 +66,8 @@ through `cargo`.
 | Run Python                         | `pixi r -e dev python ...`                                    |
 | Spell check (writes fixes)         | `pixi r spell`                                                |
 | Changelog preview                  | `pixi r changelog`                                            |
-| Docs, strict build                 | `pixi r build-docs`                                           |
-| Docs, live preview                 | `pixi r docs`                                                 |
+| Docs, strict build                 | `pixi r docs`                                                 |
+| Docs, live preview                 | `pixi r docs-serve`                                           |
 | Notebooks, sync and run            | `pixi r nb-run`                                               |
 | Notebooks, pair a new one          | `pixi r nb-pair`                                              |
 
@@ -75,10 +75,11 @@ Environments: `dev`, `test313`, `test315`, `benchmark`, `typecheck`, `lint`, `do
 
 A change is done when lint, typecheck, and the tests on both test313 and test315 pass,
 plus the three Rust checks when it touches `src/`, `tests/`, or `Cargo.toml`, and
-`pixi r build-docs` when it touches `docs/`, `README.md`, or `mkdocs.yml`.
+`pixi r docs` when it touches `docs/`, `README.md`, `CHANGELOG.md`, or `zensical.toml`.
 `.github/workflows/test.yml` runs the tests on Linux, macOS, and Windows with the Rust,
-typecheck, lint, and audit jobs; `release.yml` builds the wheels on every PR; and
-`codspeed.yml` runs the benchmarks.
+typecheck, lint, and audit jobs; `docs.yml` builds the site on every PR and deploys
+`main` to GitHub Pages; `release.yml` builds the wheels on every PR; and `codspeed.yml`
+runs the benchmarks.
 
 ## Code style
 
@@ -109,14 +110,21 @@ typecheck, lint, and audit jobs; `release.yml` builds the wheels on every PR; an
     script; edit either and commit both, the notebook with its outputs. `pixi r nb-run`
     syncs them and executes the notebooks against a release build. ssort skips this
     folder, since it can move code between cells (L-04).
-- The docs render notebooks from their stored outputs and never execute them. Each
-    notebook gets a card in `docs/examples/index.md` with a thumbnail in
-    `docs/examples/images/`.
+- `pixi r docs` converts each notebook into a Markdown page beside it without running
+    it, since zensical renders no notebooks. The generated `.md` files and `*_files/`
+    folders are git-ignored, apart from `index.md`. The site also publishes the `.ipynb`
+    and `.py` files, so a link to `other.ipynb` downloads the notebook; link `other.md`
+    to reach its page.
+- Each notebook gets a card in `docs/examples/index.md` with a thumbnail in
+    `docs/examples/images/`. The strict build fails if a card links to a notebook that
+    does not exist.
+- `docs/index.md`, `docs/changelog.md`, `docs/contributing.md`, and `docs/license.md`
+    only include `README.md`, `CHANGELOG.md`, this file, and `LICENSE`. Edit the
+    sources.
 - `docs/examples/whats_new.ipynb` reads `data/v041.npz`. Regenerate it only with the
     command in `docs/examples/data/make_v041_data.py`, then rerun the notebook (D-21).
-- `docs/contributing.md` only includes this file, so links here must be absolute URLs: a
-    relative link resolves against the site, where its target does not exist, and the
-    strict build does not catch it.
+- Links in the included files must be absolute URLs: a relative link resolves against
+    the site, where its target does not exist, and the strict build does not catch it.
 - `release.yml` comes from `maturin generate-ci github`. After regenerating it, restore
     the `test` and `release-notes` jobs, `release-notes` in the release job's `needs`,
     pushes to `main` only, trusted publishing without a token, the `interpreter` entries
@@ -129,10 +137,10 @@ typecheck, lint, and audit jobs; `release.yml` builds the wheels on every PR; an
     when no `CLAUDE.md` exists (D-17).
 - The ruleset on `main` names its required checks by job: `Test (test313, <os>)` and
     `Test (test315, <os>)` for `ubuntu-latest`, `macos-latest`, and `windows-latest`,
-    plus `Rust`, `Typecheck`, and `Lint`, all from `test.yml`. Renaming a job or a
-    matrix entry leaves the old name unreported, so the renaming PR and every PR after
-    it wait forever. Swap the name under `Settings > Rules > Rulesets` as that PR
-    merges.
+    plus `Rust`, `Typecheck`, and `Lint` from `test.yml`, and `Docs` from `docs.yml`.
+    Renaming a job or a matrix entry leaves the old name unreported, so the renaming PR
+    and every PR after it wait forever. Swap the name under
+    `Settings > Rules > Rulesets` as that PR merges.
 
 ## Git
 
