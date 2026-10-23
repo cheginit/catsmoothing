@@ -11,6 +11,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- Supported Python versions are 3.13 to 3.15; Python 3.10 to 3.12 are no longer
+    supported. Extension builds use PyO3 0.30, which supports Python 3.15.
 ### Fixed
 
 ## [0.4.1] - 2026-02-22
