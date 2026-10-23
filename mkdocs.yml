@@ -109,6 +109,7 @@ nav:
 - API Reference: reference.md
 - Release Notes: CHANGELOG.md
 - Contributing: contributing.md
+- Design Decisions: design.md
 plugins:
 - search
 - mkdocs-jupyter:
