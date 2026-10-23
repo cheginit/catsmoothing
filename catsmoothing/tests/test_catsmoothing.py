@@ -52,8 +52,11 @@ def test_line_tangent():
     line_smoothed = cs.smooth_linestrings(line, distances=0.2, gaussian_sigmas=2)
     assert_close(line.length, line_smoothed.length, 2.8)
 
+    # Tangents follow the direction between each vertex's neighbors.
     tangents = cs.linestrings_tangent_angles(line_smoothed)
-    assert_close(tangents.mean(), 0.0072)
+    coords = shapely.get_coordinates(line_smoothed)
+    central = np.arctan2(coords[2:, 1] - coords[:-2, 1], coords[2:, 0] - coords[:-2, 0])
+    assert_close(tangents[1:-1], central, 0.02)
 
 
 def test_frozen_attrs():
@@ -269,6 +272,14 @@ def test_invalid_inputs_raise_value_error(call) -> None:
 def test_iteration_controls_are_deprecated(call) -> None:
     with pytest.deprecated_call():
         call()
+
+
+@pytest.mark.parametrize(("distance", "n_expected"), [(10.0, 11), (30.0, 5), (200.0, 2)])
+def test_distances_are_geometric(distance: float, n_expected: int) -> None:
+    line = shapely.LineString([(0, 0), (50, 0), (100, 0)])
+    coords = shapely.get_coordinates(cs.smooth_linestrings(line, distances=distance))
+    assert len(coords) == n_expected
+    assert_close(np.diff(coords[:, 0]), np.full(n_expected - 1, 100 / (n_expected - 1)), 1e-9)
 
 
 def test_repeated_vertices() -> None:

@@ -212,8 +212,15 @@ fn test_smooth_linestring_dist() {
 
     let smoothed = smooth_linestring(vertices, Some(0.2), None, Some(2.0), None).unwrap();
 
-    // Check that smoothed line has 86 points
-    assert_eq!(smoothed.len(), 86);
+    // The fewest evenly spaced points with chords no longer than the distance.
+    let chords: Vec<f64> = smoothed
+        .windows(2)
+        .map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1]))
+        .collect();
+    let n_spans = chords.len() as f64;
+    let arc_span = chords.iter().sum::<f64>() / n_spans;
+    assert!(chords.iter().all(|&c| c <= 0.2 + 1e-12));
+    assert!(arc_span * n_spans / (n_spans - 1.0) > 0.2);
 
     // Check that length of smoothed line is close to input length
     let smoothed_length: f64 = smoothed
@@ -269,10 +276,12 @@ fn test_smooth_linestrings() {
     let smoothed_lines =
         smooth_linestrings(lines, distances, n_pts_list, gaussian_sigmas, bc_types).unwrap();
 
-    // Check that the smoothed lines have the expected number of points
-    for (smoothed, expected_len) in smoothed_lines.iter().zip([30, 104, 40]) {
-        assert_eq!(smoothed.len(), expected_len);
-    }
+    assert_eq!(smoothed_lines[0].len(), 30);
+    assert_eq!(smoothed_lines[2].len(), 40);
+    // The distance-spaced line keeps every chord within the requested spacing.
+    assert!(smoothed_lines[1]
+        .windows(2)
+        .all(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1]) <= 0.2 + 1e-12));
 
     // Check that the smoothed line lengths are close to the original lengths
     for (smoothed, &orig_length) in smoothed_lines.iter().zip(&line_lengths) {
