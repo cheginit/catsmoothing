@@ -108,7 +108,7 @@ nav:
   - What's New Since 0.4.1: examples/whats_new.ipynb
 - API Reference: reference.md
 - Release Notes: CHANGELOG.md
-- Contributing: CONTRIBUTING.md
+- Contributing: contributing.md
 plugins:
 - search
 - mkdocs-jupyter:
