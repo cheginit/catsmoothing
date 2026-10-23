@@ -2,8 +2,8 @@
 #![allow(clippy::too_many_arguments)]
 
 use crate::{
-    linestring, BoundaryCondition, CatmullRom, LineToSmooth, Presmoothing, SigmaUnits, Spacing,
-    SplineError, SplineOptions,
+    linestring, BoundaryCondition, CatmullRom, Continuity, LineToSmooth, Presmoothing, SigmaUnits,
+    Spacing, SplineError, SplineOptions,
 };
 use numpy::ndarray::{Array2, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
@@ -154,7 +154,8 @@ fn linestrings_tangent_angles(
         gaussian_sigmas=None,
         bc_types=None,
         sigma_units="vertices",
-        taubin_iterations=None
+        taubin_iterations=None,
+        continuity="c1"
     )
 )]
 fn smooth_linestrings(
@@ -166,8 +167,10 @@ fn smooth_linestrings(
     bc_types: Option<Vec<String>>,
     sigma_units: &str,
     taubin_iterations: Option<i64>,
+    continuity: &str,
 ) -> PyResult<Vec<Py<PyArray2<f64>>>> {
     let units: SigmaUnits = sigma_units.parse()?;
+    let continuity: Continuity = continuity.parse()?;
     let n_lines = lines.len();
     let lines_vec: Vec<Vec<[f64; 2]>> = lines
         .iter()
@@ -205,6 +208,7 @@ fn smooth_linestrings(
             alpha: Some(0.5),
             bc_type: bc_conv[i].unwrap_or(BoundaryCondition::Clamped),
             presmoothing: presmoothing_for(gs[i], units, taubin),
+            continuity,
             ..SplineOptions::default()
         };
         jobs.push(LineToSmooth {
@@ -246,7 +250,8 @@ impl CatmullRomWrapper {
         bc_type="natural",
         gaussian_sigma=None,
         sigma_units="vertices",
-        taubin_iterations=None
+        taubin_iterations=None,
+        continuity="c1"
     ))]
     fn new(
         py: Python,
@@ -257,8 +262,10 @@ impl CatmullRomWrapper {
         gaussian_sigma: Option<f64>,
         sigma_units: &str,
         taubin_iterations: Option<i64>,
+        continuity: &str,
     ) -> PyResult<Self> {
         let units: SigmaUnits = sigma_units.parse()?;
+        let continuity: Continuity = continuity.parse()?;
         let taubin = taubin_setting(taubin_iterations, gaussian_sigma.is_some())?;
         let verts: Vec<[f64; 2]> = array2_to_vec(vertices.as_array())?;
         let grid_opt: Option<Vec<f64>> = grid.map(|g| g.as_array().to_vec());
@@ -270,6 +277,7 @@ impl CatmullRomWrapper {
                     alpha,
                     bc_type: bc,
                     presmoothing: presmoothing_for(gaussian_sigma, units, taubin),
+                    continuity,
                 };
                 CatmullRom::new(verts, options)
             })

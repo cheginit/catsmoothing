@@ -1,3 +1,4 @@
+use crate::continuity;
 use crate::error::SplineError;
 use crate::presmooth;
 use crate::utils::ends_coincide;
@@ -25,6 +26,11 @@ impl Vec2D {
     #[inline]
     pub fn norm(&self) -> f64 {
         self.norm_squared().sqrt()
+    }
+
+    #[inline]
+    pub fn dot(&self, other: &Vec2D) -> f64 {
+        self.x * other.x + self.y * other.y
     }
 }
 
@@ -86,7 +92,7 @@ const PARALLEL_MIN_POINTS: usize = 4096;
 
 /// Cubic `a t^3 + b t^2 + c t + d` over the segment parameter `t` in `[0, 1]`.
 #[derive(Debug, Clone, Copy)]
-struct Segment {
+pub(crate) struct Segment {
     a: Vec2D,
     b: Vec2D,
     c: Vec2D,
@@ -117,6 +123,16 @@ const GAUSS_LEGENDRE_WEIGHTS: [f64; 8] = [
 ];
 
 impl Segment {
+    /// Power-basis coefficients of the cubic Bezier curve with control points `b0` to `b3`.
+    pub(crate) fn from_bezier(b0: Vec2D, b1: Vec2D, b2: Vec2D, b3: Vec2D) -> Self {
+        Self {
+            a: (b1 - b2) * 3.0 + b3 - b0,
+            b: (b0 + b2) * 3.0 - b1 * 6.0,
+            c: (b1 - b0) * 3.0,
+            d: b0,
+        }
+    }
+
     fn velocity(&self, t: f64) -> Vec2D {
         (self.a * (3.0 * t) + self.b * 2.0) * t + self.c
     }
@@ -208,12 +224,42 @@ pub struct SplineOptions {
     pub alpha: Option<f64>,
     pub bc_type: BoundaryCondition,
     pub presmoothing: Option<Presmoothing>,
+    pub continuity: Continuity,
 }
 
-/// A cubic Catmull-Rom spline through 2D vertices, one Hermite segment per vertex pair.
+/// Smoothness of the joints between spline pieces.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Continuity {
+    /// Catmull-Rom tangent continuity.
+    #[default]
+    C1,
+    /// Curvature continuity with free parametric speed; follows the C1 shape closely.
+    G2,
+    /// Continuous second derivative in the grid parameter.
+    C2,
+}
+
+impl FromStr for Continuity {
+    type Err = SplineError;
+
+    /// Parses `"c1"`, `"g2"`, or `"c2"`, ignoring case.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "c1" => Ok(Self::C1),
+            "g2" => Ok(Self::G2),
+            "c2" => Ok(Self::C2),
+            _ => Err(SplineError::InvalidContinuity),
+        }
+    }
+}
+
+/// A cubic Catmull-Rom spline through 2D vertices: one Hermite segment per vertex pair, or
+/// three cubic pieces per pair with higher [`Continuity`].
 #[derive(Debug)]
 pub struct CatmullRom {
     grid: Vec<f64>,
+    // Parameter value where each segment starts, plus the end of the last one.
+    knots: Vec<f64>,
     segments: Vec<Segment>,
 }
 
@@ -222,7 +268,8 @@ impl CatmullRom {
     ///
     /// Without `alpha` or `grid`, the grid is `0, 1, 2, ...`. Closed curves append the first
     /// vertex unless the last vertex already matches it. Without an explicit grid, repeated
-    /// consecutive vertices are dropped.
+    /// consecutive vertices are dropped. `G2` and `C2` continuity use Yuksel's (2026)
+    /// continuity-enhancing splits, which keep every vertex and its tangent.
     ///
     /// # Errors
     ///
@@ -234,6 +281,7 @@ impl CatmullRom {
             alpha,
             bc_type,
             presmoothing,
+            continuity,
         } = options;
         if vertices.len() < 2 {
             return Err(SplineError::TooFewVertices);
@@ -291,9 +339,25 @@ impl CatmullRom {
 
         let grid = Self::get_grid(grid, alpha, &vertices_vec)?;
         let tangents = Self::get_tangents(&vertices_vec, &grid, bc_type);
-        let segments = Self::get_segments(&vertices_vec, &grid, &tangents);
+        let (knots, segments) = match continuity {
+            Continuity::C1 => (
+                grid.clone(),
+                Self::get_segments(&vertices_vec, &grid, &tangents),
+            ),
+            Continuity::G2 | Continuity::C2 => continuity::split(
+                &vertices_vec,
+                &grid,
+                &tangents,
+                closed,
+                continuity == Continuity::G2,
+            ),
+        };
 
-        Ok(Self { grid, segments })
+        Ok(Self {
+            grid,
+            knots,
+            segments,
+        })
     }
 
     /// Parameter value at each vertex.
@@ -453,12 +517,12 @@ impl CatmullRom {
     fn evaluate_one(&self, distance: f64, n: usize) -> [f64; 2] {
         // Points outside the grid extrapolate from the first or last segment.
         let idx = self
-            .grid
+            .knots
             .partition_point(|&g| g <= distance)
             .saturating_sub(1)
             .min(self.segments.len() - 1);
-        let d0 = self.grid[idx];
-        let dt = self.grid[idx + 1] - d0;
+        let d0 = self.knots[idx];
+        let dt = self.knots[idx + 1] - d0;
         let t = (distance - d0) / dt;
         let Segment { a, b, c, d } = self.segments[idx];
         // Derivatives are taken with respect to the grid, so undo the segment normalization.
@@ -502,7 +566,7 @@ impl CatmullRom {
             }
             let local = (target - start).clamp(0.0, lengths[idx]);
             let t = self.segments[idx].param_at_length(local, lengths[idx]);
-            distances.push(self.grid[idx] + t * (self.grid[idx + 1] - self.grid[idx]));
+            distances.push(self.knots[idx] + t * (self.knots[idx + 1] - self.knots[idx]));
         }
         distances[0] = self.grid[0];
         distances[n_pts - 1] = self.grid[self.grid.len() - 1];

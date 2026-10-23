@@ -1,7 +1,8 @@
 use catsmoothing::SplineError;
 use catsmoothing::{line_tangents, lines_tangents, smooth_linestring, smooth_linestrings};
 use catsmoothing::{
-    BoundaryCondition, CatmullRom, LineToSmooth, Presmoothing, SigmaUnits, Spacing, SplineOptions,
+    BoundaryCondition, CatmullRom, Continuity, LineToSmooth, Presmoothing, SigmaUnits, Spacing,
+    SplineOptions,
 };
 use rand::prelude::*;
 use rand_distr::{Distribution, StandardNormal};
@@ -24,6 +25,7 @@ fn fit(
             alpha,
             bc_type,
             presmoothing,
+            ..SplineOptions::default()
         },
     )
 }
@@ -789,4 +791,134 @@ fn test_gaussian_smoothing_treats_ring_seam_like_other_vertices() {
         assert!((r - radii[0]).abs() < 1e-12, "radii differ: {radii:?}");
     }
     assert!(radii[0] < 1.0, "Gaussian smoothing shrinks a ring");
+}
+
+/// Signed curvature at each distance.
+fn curvature(spline: &CatmullRom, distances: &[f64]) -> Vec<f64> {
+    let d1 = spline.evaluate(distances, 1).unwrap();
+    let d2 = spline.evaluate(distances, 2).unwrap();
+    d1.iter()
+        .zip(&d2)
+        .map(|(v, a)| (v[0] * a[1] - v[1] * a[0]) / v[0].hypot(v[1]).powi(3))
+        .collect()
+}
+
+#[test]
+fn test_continuity_splits() {
+    let mut rng = StdRng::seed_from_u64(11);
+    let vertices: Vec<[f64; 2]> = (0..30)
+        .map(|i| {
+            let noise: f64 = StandardNormal.sample(&mut rng);
+            let x = f64::from(i) * 0.2;
+            [x, x.sin() + 0.05 * noise]
+        })
+        .collect();
+    for bc_type in [
+        BoundaryCondition::Natural,
+        BoundaryCondition::Clamped,
+        BoundaryCondition::Closed,
+    ] {
+        let build = |continuity| {
+            let options = SplineOptions {
+                alpha: Some(0.5),
+                bc_type,
+                continuity,
+                ..SplineOptions::default()
+            };
+            CatmullRom::new(vertices.clone(), options).unwrap()
+        };
+        let c1 = build(Continuity::C1);
+        let grid = c1.grid().to_vec();
+        let mean_span = (grid[grid.len() - 1] - grid[0]) / (grid.len() - 1) as f64;
+        let eps = 1e-6 * mean_span;
+        // Joints at vertices, and for the splits the two knots inside each piece.
+        let vertex_joints: Vec<f64> = if bc_type == BoundaryCondition::Closed {
+            grid.clone()
+        } else {
+            grid[1..grid.len() - 1].to_vec()
+        };
+        let inner_knots: Vec<f64> = grid
+            .windows(2)
+            .flat_map(|w| [w[0] + 0.25 * (w[1] - w[0]), w[1] - 0.25 * (w[1] - w[0])])
+            .collect();
+        let jump = |spline: &CatmullRom, at: f64| -> f64 {
+            // The seam of a closed curve joins the last segment to the first.
+            let (left, right) = if bc_type == BoundaryCondition::Closed && at == grid[0] {
+                (grid[grid.len() - 1] - eps, at + eps)
+            } else if bc_type == BoundaryCondition::Closed && at == grid[grid.len() - 1] {
+                (at - eps, grid[0] + eps)
+            } else {
+                (at - eps, at + eps)
+            };
+            let k = curvature(spline, &[left, right]);
+            (k[0] - k[1]).abs()
+        };
+        let c1_worst = vertex_joints
+            .iter()
+            .map(|&g| jump(&c1, g))
+            .fold(0.0, f64::max);
+        assert!(
+            c1_worst > 1.0,
+            "{bc_type:?}: C1 control should jump in curvature"
+        );
+
+        for continuity in [Continuity::G2, Continuity::C2] {
+            let spline = build(continuity);
+            assert_eq!(spline.grid(), &grid[..]);
+            // Same vertices and vertex tangents as the C1 curve.
+            let at_vertices = spline.evaluate(&grid, 0).unwrap();
+            for (p, q) in at_vertices.iter().zip(&c1.evaluate(&grid, 0).unwrap()) {
+                assert_close(p, q, 1e-12);
+            }
+            for (p, q) in spline
+                .evaluate(&grid, 1)
+                .unwrap()
+                .iter()
+                .zip(&c1.evaluate(&grid, 1).unwrap())
+            {
+                assert_close(p, q, 1e-9);
+            }
+            // The enhanced curve stays near the C1 shape (measured: G2 2.5%, C2 4.1%).
+            let dense: Vec<f64> = (0..=600)
+                .map(|i| grid[0] + (grid[grid.len() - 1] - grid[0]) * f64::from(i) / 600.0)
+                .collect();
+            let drift = spline
+                .evaluate(&dense, 0)
+                .unwrap()
+                .iter()
+                .zip(&c1.evaluate(&dense, 0).unwrap())
+                .map(|(p, q)| (p[0] - q[0]).hypot(p[1] - q[1]))
+                .fold(0.0, f64::max);
+            let mean_chord = c1.length() / (grid.len() - 1) as f64;
+            assert!(
+                drift < 0.1 * mean_chord,
+                "{bc_type:?} {continuity:?}: drift {drift}"
+            );
+            let worst = vertex_joints
+                .iter()
+                .chain(&inner_knots)
+                .map(|&g| jump(&spline, g))
+                .fold(0.0, f64::max);
+            assert!(
+                worst < 1e-3,
+                "{bc_type:?} {continuity:?}: curvature jump {worst}"
+            );
+            if continuity == Continuity::C2 {
+                // Second derivatives match on both sides of every joint.
+                for &g in vertex_joints.iter().chain(&inner_knots) {
+                    if bc_type == BoundaryCondition::Closed
+                        && (g == grid[0] || g == grid[grid.len() - 1])
+                    {
+                        continue;
+                    }
+                    let d2 = spline.evaluate(&[g - eps, g + eps], 2).unwrap();
+                    let scale = 1.0 + d2[0][0].hypot(d2[0][1]);
+                    assert!(
+                        (d2[0][0] - d2[1][0]).hypot(d2[0][1] - d2[1][1]) < 1e-4 * scale,
+                        "{bc_type:?}: second derivative jumps at {g}"
+                    );
+                }
+            }
+        }
+    }
 }

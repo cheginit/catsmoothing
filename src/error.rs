@@ -34,4 +34,6 @@ pub enum SplineError {
     InvalidTaubinIterations,
     #[error("gaussian_sigma and taubin_iterations cannot be combined")]
     ConflictingPresmoothing,
+    #[error("Invalid continuity. Use 'c1', 'g2', or 'c2'.")]
+    InvalidContinuity,
 }
