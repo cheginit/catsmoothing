@@ -50,7 +50,6 @@ pub(crate) fn gaussian_by_length(vertices: &[Vec2D], sigma: f64, closed: bool) -
         return vertices.to_vec();
     }
     let reach = 4.0 * sigma;
-    let inv_two_sigma2 = 1.0 / (2.0 * sigma * sigma);
 
     // Position along the line and point of sample `k` on the extended line.
     let sample = |k: isize| -> (f64, Vec2D) {
@@ -75,7 +74,7 @@ pub(crate) fn gaussian_by_length(vertices: &[Vec2D], sigma: f64, closed: bool) -
         }
     };
     let smooth = |i: isize| -> Vec2D {
-        let center = sample(i).0;
+        let (center, own) = sample(i);
         let (mut sum, mut weight) = (Vec2D::new(0.0, 0.0), 0.0);
         for step in [1, -1] {
             let mut k = if step > 0 { i } else { i - 1 };
@@ -85,13 +84,19 @@ pub(crate) fn gaussian_by_length(vertices: &[Vec2D], sigma: f64, closed: bool) -
                     break;
                 }
                 let span = 0.5 * (sample(k + 1).0 - sample(k - 1).0);
-                let w = (-(s - center) * (s - center) * inv_two_sigma2).exp() * span;
+                // Normalizing first keeps tiny sigmas from forming 0 * inf.
+                let z = (s - center) / sigma;
+                let w = (-0.5 * z * z).exp() * span;
                 sum = sum + v * w;
                 weight += w;
                 k += step;
             }
         }
-        sum * (1.0 / weight)
+        if weight > 0.0 {
+            sum * (1.0 / weight)
+        } else {
+            own
+        }
     };
 
     if closed {
@@ -244,6 +249,16 @@ mod tests {
             worst_vertex > 0.1,
             "vertex kernel should depend on density: {worst_vertex}"
         );
+    }
+
+    #[test]
+    fn test_length_kernel_with_tiny_sigma_keeps_vertices() {
+        let line = vec![
+            Vec2D::new(0.0, 0.0),
+            Vec2D::new(1.0, 1.0),
+            Vec2D::new(0.0, 0.0),
+        ];
+        assert_eq!(gaussian_by_length(&line, 1e-200, false), line);
     }
 
     #[test]
