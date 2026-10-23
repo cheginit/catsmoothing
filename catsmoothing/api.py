@@ -75,6 +75,11 @@ class CatmullRom:
         length along the input line in coordinate units. With ``"length"``, each
         vertex is weighted by the length of line it stands for, so uneven vertex
         spacing does not bias the smoothing.
+    taubin_iterations : int, optional
+        Number of Taubin lambda/mu smoothing iterations (lambda 0.5, mu -0.53)
+        applied to the vertices before fitting, by default None. Each iteration
+        is one lambda step and one mu step; it damps vertex jitter while keeping
+        the curve's overall size. Cannot be combined with a Gaussian sigma.
 
     Examples
     --------
@@ -103,6 +108,7 @@ class CatmullRom:
         "gaussian_sigma",
         "grid",
         "sigma_units",
+        "taubin_iterations",
     )
 
     def __init__(
@@ -114,6 +120,7 @@ class CatmullRom:
         gaussian_sigma: float | None = None,
         *,
         sigma_units: SigmaUnits = "vertices",
+        taubin_iterations: int | None = None,
     ) -> None:
         vertices = _to_array(vertices, "f8")
         grid = _to_array(grid, "f8") if grid is not None else None
@@ -121,10 +128,17 @@ class CatmullRom:
         self.gaussian_sigma = float(gaussian_sigma) if gaussian_sigma is not None else None
         self.bc_type = bc_type
         self.sigma_units = sigma_units
+        self.taubin_iterations = taubin_iterations
         if self.bc_type not in ("natural", "closed", "clamped"):
             raise ValueError("`bc_type` must be 'natural', 'closed', 'clamped'.")
         self._spline = CatmullRomWrapper(
-            vertices, grid, self.alpha, self.bc_type, self.gaussian_sigma, sigma_units
+            vertices,
+            grid,
+            self.alpha,
+            self.bc_type,
+            self.gaussian_sigma,
+            sigma_units,
+            taubin_iterations,
         )
         self.grid = np.asarray(self._spline.grid)
         self._is_frozen = True
@@ -199,6 +213,8 @@ class CatmullRom:
             parts.append(f"gaussian_sigma={self.gaussian_sigma}")
             if self.sigma_units != "vertices":
                 parts.append(f"sigma_units='{self.sigma_units}'")
+        if self.taubin_iterations is not None:
+            parts.append(f"taubin_iterations={self.taubin_iterations}")
         return f"CatmullRom({', '.join(parts)})"
 
 
@@ -213,6 +229,7 @@ def smooth_linestrings(
     tolerance: float | None = None,
     max_iterations: int | None = None,
     sigma_units: SigmaUnits = "vertices",
+    taubin_iterations: int | None = None,
 ) -> LineString: ...
 
 
@@ -227,6 +244,7 @@ def smooth_linestrings(
     tolerance: float | None = None,
     max_iterations: int | None = None,
     sigma_units: SigmaUnits = "vertices",
+    taubin_iterations: int | None = None,
 ) -> list[LineString]: ...
 
 
@@ -240,6 +258,7 @@ def smooth_linestrings(
     tolerance: float | None = None,
     max_iterations: int | None = None,
     sigma_units: SigmaUnits = "vertices",
+    taubin_iterations: int | None = None,
 ) -> LineString | list[LineString]:
     """Smooth LineStrings using Centripetal Catmull-Rom splines and uniform spacing.
 
@@ -273,6 +292,11 @@ def smooth_linestrings(
         length along the input line in coordinate units. With ``"length"``, each
         vertex is weighted by the length of line it stands for, so uneven vertex
         spacing does not bias the smoothing.
+    taubin_iterations : int, optional
+        Number of Taubin lambda/mu smoothing iterations (lambda 0.5, mu -0.53)
+        applied to the vertices before fitting, by default None. Each iteration
+        is one lambda step and one mu step; it damps vertex jitter while keeping
+        the curve's overall size. Cannot be combined with a Gaussian sigma.
 
     Returns
     -------
@@ -296,6 +320,7 @@ def smooth_linestrings(
         _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
         bc_list,
         sigma_units,
+        taubin_iterations,
     )
 
     to_geometry = (
@@ -314,6 +339,7 @@ def linestrings_tangent_angles(
     gaussian_sigmas: list[float] | None = None,
     *,
     sigma_units: SigmaUnits = "vertices",
+    taubin_iterations: int | None = None,
 ) -> list[FloatArray]: ...
 
 
@@ -323,6 +349,7 @@ def linestrings_tangent_angles(
     gaussian_sigmas: float | None = None,
     *,
     sigma_units: SigmaUnits = "vertices",
+    taubin_iterations: int | None = None,
 ) -> FloatArray: ...
 
 
@@ -331,6 +358,7 @@ def linestrings_tangent_angles(
     gaussian_sigmas: float | list[float] | None = None,
     *,
     sigma_units: SigmaUnits = "vertices",
+    taubin_iterations: int | None = None,
 ) -> FloatArray | list[FloatArray]:
     """Compute tangent angles for a line.
 
@@ -347,6 +375,11 @@ def linestrings_tangent_angles(
         length along the input line in coordinate units. With ``"length"``, each
         vertex is weighted by the length of line it stands for, so uneven vertex
         spacing does not bias the smoothing.
+    taubin_iterations : int, optional
+        Number of Taubin lambda/mu smoothing iterations (lambda 0.5, mu -0.53)
+        applied to the vertices before fitting, by default None. Each iteration
+        is one lambda step and one mu step; it damps vertex jitter while keeping
+        the curve's overall size. Cannot be combined with a Gaussian sigma.
 
     Returns
     -------
@@ -368,6 +401,7 @@ def linestrings_tangent_angles(
         [shapely.get_coordinates(line) for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
         gs_list,
         sigma_units,
+        taubin_iterations,
     )
     if len(angles) == 1:
         return np.asarray(angles[0])
@@ -380,10 +414,17 @@ def _poly_smooth(
     n_pts: int | None = None,
     gaussian_sigma: float | None = None,
     sigma_units: SigmaUnits = "vertices",
+    taubin_iterations: int | None = None,
 ) -> Polygon:
     """Smooth a Polygon using Catmull-Rom splines."""
     exterior = smooth_linestrings(
-        polygon.exterior, distance, n_pts, gaussian_sigma, "closed", sigma_units=sigma_units
+        polygon.exterior,
+        distance,
+        n_pts,
+        gaussian_sigma,
+        "closed",
+        sigma_units=sigma_units,
+        taubin_iterations=taubin_iterations,
     )
     n_holes = shapely.get_num_interior_rings(polygon)
     if n_holes == 0:
@@ -395,6 +436,7 @@ def _poly_smooth(
         [gaussian_sigma] * n_holes if gaussian_sigma is not None else None,
         ["closed"] * n_holes,  # pyright: ignore[reportArgumentType]
         sigma_units=sigma_units,
+        taubin_iterations=taubin_iterations,
     )
     poly = shapely.Polygon(exterior, [interiors] if n_holes == 1 else interiors)
     return shapely.make_valid(poly)  # pyright: ignore[reportReturnType]
@@ -409,6 +451,7 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     tolerance: float | None = None,
     max_iterations: int | None = None,
     sigma_units: SigmaUnits = "vertices",
+    taubin_iterations: int | None = None,
 ) -> PolygonType:
     """Smooth a (Multi)Polygon using Centripetal Catmull-Rom splines with uniform spacing.
 
@@ -435,6 +478,11 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
         length along the input line in coordinate units. With ``"length"``, each
         vertex is weighted by the length of line it stands for, so uneven vertex
         spacing does not bias the smoothing.
+    taubin_iterations : int, optional
+        Number of Taubin lambda/mu smoothing iterations (lambda 0.5, mu -0.53)
+        applied to the vertices before fitting, by default None. Each iteration
+        is one lambda step and one mu step; it damps vertex jitter while keeping
+        the curve's overall size. Cannot be combined with a Gaussian sigma.
 
     Returns
     -------
@@ -446,11 +494,13 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
 
     _warn_ignored(tolerance, max_iterations)
     if isinstance(polygon, shapely.Polygon):
-        return _poly_smooth(polygon, distance, n_pts, gaussian_sigma, sigma_units)
+        return _poly_smooth(
+            polygon, distance, n_pts, gaussian_sigma, sigma_units, taubin_iterations
+        )
 
     return shapely.MultiPolygon(
         [
-            _poly_smooth(poly, distance, n_pts, gaussian_sigma, sigma_units)
+            _poly_smooth(poly, distance, n_pts, gaussian_sigma, sigma_units, taubin_iterations)
             for poly in polygon.geoms
         ]
     )

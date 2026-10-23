@@ -7,8 +7,8 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Vec2D {
-    x: f64,
-    y: f64,
+    pub(crate) x: f64,
+    pub(crate) y: f64,
 }
 
 impl Vec2D {
@@ -192,6 +192,9 @@ pub enum Presmoothing {
     /// Gaussian kernel with standard deviation `sigma`. Open lines keep their end vertices and
     /// reflect through them; closed rings wrap around.
     Gaussian { sigma: f64, units: SigmaUnits },
+    /// Taubin lambda/mu smoothing (lambda 0.5, mu -0.53). One iteration is one lambda step
+    /// and one mu step. Open lines keep their end vertices; closed rings wrap around.
+    Taubin { iterations: usize },
 }
 
 /// How a [`CatmullRom`] is built. The default is a uniform grid, natural ends, and no
@@ -241,10 +244,14 @@ impl CatmullRom {
         if alpha.is_some_and(|a| !a.is_finite()) {
             return Err(SplineError::InvalidAlpha);
         }
-        if let Some(Presmoothing::Gaussian { sigma, .. }) = presmoothing {
-            if !(sigma.is_finite() && sigma >= 0.0) {
-                return Err(SplineError::InvalidGaussianSigma);
+        match presmoothing {
+            Some(Presmoothing::Gaussian { sigma, .. }) if !(sigma.is_finite() && sigma >= 0.0) => {
+                return Err(SplineError::InvalidGaussianSigma)
             }
+            Some(Presmoothing::Taubin { iterations: 0 }) => {
+                return Err(SplineError::InvalidTaubinIterations)
+            }
+            _ => {}
         }
 
         // Repeated vertices would give zero grid steps; an explicit grid keeps them.
@@ -276,6 +283,9 @@ impl CatmullRom {
                 SigmaUnits::Vertices => presmooth::gaussian(&vertices_vec, sigma, closed),
                 SigmaUnits::Length => presmooth::gaussian_by_length(&vertices_vec, sigma, closed),
             },
+            Some(Presmoothing::Taubin { iterations }) => {
+                presmooth::taubin(&vertices_vec, iterations, closed)
+            }
             None => vertices_vec,
         };
 

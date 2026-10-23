@@ -30,4 +30,8 @@ pub enum SplineError {
     TooManyPoints,
     #[error("Invalid sigma_units. Use 'vertices' or 'length'.")]
     InvalidSigmaUnits,
+    #[error("taubin_iterations must be at least 1")]
+    InvalidTaubinIterations,
+    #[error("gaussian_sigma and taubin_iterations cannot be combined")]
+    ConflictingPresmoothing,
 }
