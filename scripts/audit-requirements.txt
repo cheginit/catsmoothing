@@ -1,0 +1,2 @@
+# What `pixi r audit` resolves and checks: the package as a user installs it.
+catsmoothing @ file://${PIXI_PROJECT_ROOT}
