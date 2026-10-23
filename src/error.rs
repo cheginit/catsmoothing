@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+/// Errors from fitting, evaluating, or resampling a spline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum SplineError {
     #[error("At least two vertices are required")]
