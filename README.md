@@ -10,7 +10,7 @@
 
 [![codecov](https://codecov.io/gh/cheginit/catsmoothing/graph/badge.svg?token=U2638J9WKM)](https://codecov.io/gh/cheginit/catsmoothing)
 [![CI](https://github.com/cheginit/catsmoothing/actions/workflows/test.yml/badge.svg)](https://github.com/cheginit/catsmoothing/actions/workflows/test.yml)
-[![Documentation Status](https://readthedocs.org/projects/catsmoothing/badge/?version=latest)](https://catsmoothing.readthedocs.io/latest/?badge=latest)
+[![Docs](https://github.com/cheginit/catsmoothing/actions/workflows/docs.yml/badge.svg)](https://cheginit.github.io/catsmoothing/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/cheginit/catsmoothing)
 
@@ -139,12 +139,12 @@ line_smoothed = cs.smooth_linestrings(
 )
 ```
 
-For more examples, visit the [documentation](https://catsmoothing.readthedocs.io).
+For more examples, visit the [documentation](https://cheginit.github.io/catsmoothing/).
 
 ## Contributing
 
 We welcome contributions! For guidelines, please refer to the
-[contributing guide](https://catsmoothing.readthedocs.io/latest/contributing/) and
+[contributing guide](https://cheginit.github.io/catsmoothing/contributing/) and
 [CODE_OF_CONDUCT.md](https://github.com/cheginit/catsmoothing/blob/main/CODE_OF_CONDUCT.md).
 
 ## License
