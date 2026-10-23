@@ -92,7 +92,13 @@ pub fn smooth_linestring(
     let n_pts = match spacing {
         Spacing::Count(n) => n,
         // ceil(L / d) intervals, one more point.
-        Spacing::MaxDistance(d) => ((spline.length() / d).ceil() as usize).saturating_add(1),
+        Spacing::MaxDistance(d) => {
+            let length = spline.length();
+            if !length.is_finite() {
+                return Err(SplineError::NonFiniteLength);
+            }
+            ((length / d).ceil() as usize).saturating_add(1)
+        }
     };
     let distances = spline.uniform_distances(n_pts)?;
     spline.evaluate(&distances, 0)

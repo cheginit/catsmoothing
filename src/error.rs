@@ -29,6 +29,8 @@ pub enum SplineError {
     InvalidDistance,
     #[error("Too many output points requested")]
     TooManyPoints,
+    #[error("Curve length is not finite; coordinates may be too large")]
+    NonFiniteLength,
     #[error("Invalid sigma_units. Use 'vertices' or 'length'.")]
     InvalidSigmaUnits,
     #[error("taubin_iterations must be at least 1")]

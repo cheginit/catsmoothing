@@ -944,3 +944,26 @@ fn test_uniform_distances_across_a_reversal() {
         .fold(0.0, f64::max);
     assert!(worst < 1e-6, "relative spacing deviation {worst:.2e}");
 }
+
+#[test]
+fn test_overflowing_lengths_fail_fast() {
+    let spline = fit(
+        vec![[0.0, 0.0], [1e155, 0.0], [2e155, 0.0]],
+        None,
+        None,
+        BoundaryCondition::Natural,
+        None,
+    )
+    .unwrap();
+    assert!(!spline.length().is_finite());
+    assert_eq!(
+        spline.uniform_distances(3).unwrap_err(),
+        SplineError::NonFiniteLength
+    );
+    let smoothed = smooth_linestring(
+        vec![[0.0, 0.0], [1e155, 0.0], [2e155, 0.0]],
+        Spacing::MaxDistance(1.0),
+        SplineOptions::default(),
+    );
+    assert_eq!(smoothed.unwrap_err(), SplineError::NonFiniteLength);
+}

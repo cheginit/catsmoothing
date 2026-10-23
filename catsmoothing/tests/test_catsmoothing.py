@@ -364,6 +364,12 @@ def test_ring_tangent_angles_are_periodic() -> None:
     assert_close(np.roll(angles[:-1], -1), rotated[:-1], 1e-9)
 
 
+def test_overflowing_coordinates_raise() -> None:
+    s = CatmullRom([(0, 0), (1e155, 0), (2e155, 0)])
+    with pytest.raises(ValueError, match="not finite"):
+        s.uniform_distances(3)
+
+
 def test_repeated_vertices() -> None:
     line = shapely.LineString([(0, 0), (1, 1), (1, 1), (2, 0)])
     result = cs.smooth_linestrings(line, n_pts=5)
