@@ -28,27 +28,38 @@ jobs:
       contents: write
     steps:
     - uses: actions/checkout@v4
-    - name: Generate Changelog
-      run: |-
-        echo "# Release Notes" > ${{ github.workflow }}-CHANGELOG.md
-        PAT="^## "
-        L1=$(grep -n "$PAT" CHANGELOG.md | sed -n '2p' | cut -d ":" -f 1)
-        L2=$(grep -n "$PAT" CHANGELOG.md | sed -n '3p' | cut -d ":" -f 1)
-        if [ -z "$L2" ]; then
-            tail -n +$L1 CHANGELOG.md >> ${{ github.workflow }}-CHANGELOG.md
-        else
-            awk "NR > $L1 && NR < $((L2 - 1))" CHANGELOG.md >> ${{ github.workflow }}-CHANGELOG.md
-        fi
-    - name: Remove extra spaces
-      run: |-
-        sed -i 's/-   /- /g' ${{ github.workflow }}-CHANGELOG.md
-    - name: Github Release
-      uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        body_path: ${{ github.workflow }}-CHANGELOG.md
+        fetch-depth: 0
+        persist-credentials: false
+    # checkout can leave the tag lightweight (actions/checkout#882), dropping the release summary.
+    - if: startsWith(github.ref, 'refs/tags/')
+      run: git fetch --force origin "+refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+    # tag_pattern matches only vX.Y.Z, so a pre-release such as v0.5.0rc1 gets its tag message as notes.
+    - id: kind
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        if [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "prerelease=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > release-notes.md
+        fi
+    - uses: orhun/git-cliff-action@v4
+      if: startsWith(github.ref, 'refs/tags/') && steps.kind.outputs.prerelease == 'false'
+      with:
+        version: v2.14.2  # same as the dev environment's git-cliff
+        config: pyproject.toml
+        args: --latest --strip all
       env:
+        OUTPUT: release-notes.md
+        GITHUB_REPO: ${{ github.repository }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - if: startsWith(github.ref, 'refs/tags/')
+      run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --notes-file release-notes.md --prerelease="$PRERELEASE"
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PRERELEASE: ${{ steps.kind.outputs.prerelease }}
   linux:
     runs-on: ${{ matrix.platform.runner }}
     strategy:
