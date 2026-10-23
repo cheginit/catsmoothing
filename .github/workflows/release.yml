@@ -35,18 +35,24 @@ jobs:
     # checkout can leave the tag lightweight (actions/checkout#882), dropping the release summary.
     - if: startsWith(github.ref, 'refs/tags/')
       run: git fetch --force origin "+refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
-    # tag_pattern matches only vX.Y.Z, so a pre-release such as v0.5.0rc1 gets its tag message as notes.
+    # A pre-release gets its tag message, a release with a CHANGELOG.md section gets that
+    # section, and any other release gets git-cliff's notes (tag_pattern matches only vX.Y.Z).
     - id: kind
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        if [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "prerelease=false" >> "$GITHUB_OUTPUT"
-        else
+        version="${GITHUB_REF_NAME#v}"
+        if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           echo "prerelease=true" >> "$GITHUB_OUTPUT"
           git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > release-notes.md
+        elif grep -q "^## \[${version}\]" CHANGELOG.md; then
+          echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          awk -v head="## [${version}]" 'index($0, head) == 1 {on = 1; next} on && /^## \[/ {exit} on' CHANGELOG.md > release-notes.md
+        else
+          echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          echo "cliff=true" >> "$GITHUB_OUTPUT"
         fi
     - uses: orhun/git-cliff-action@v4
-      if: startsWith(github.ref, 'refs/tags/') && steps.kind.outputs.prerelease == 'false'
+      if: startsWith(github.ref, 'refs/tags/') && steps.kind.outputs.cliff == 'true'
       with:
         version: v2.14.2  # same as the dev environment's git-cliff
         config: pyproject.toml
@@ -55,8 +61,14 @@ jobs:
         OUTPUT: release-notes.md
         GITHUB_REPO: ${{ github.repository }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # A rerun edits the release that the first run created.
     - if: startsWith(github.ref, 'refs/tags/')
-      run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --notes-file release-notes.md --prerelease="$PRERELEASE"
+      run: |
+        if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md
+        else
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --notes-file release-notes.md --prerelease="$PRERELEASE"
+        fi
       env:
         GH_TOKEN: ${{ github.token }}
         PRERELEASE: ${{ steps.kind.outputs.prerelease }}

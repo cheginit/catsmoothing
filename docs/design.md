@@ -205,9 +205,11 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
 - **Status:** accepted (2026-10-23).
 - **Decision:** The version is set in both `pyproject.toml` and `Cargo.toml`, and
     `pixi r release vX.Y.Z` refuses a tag that does not match both or a commit not on
-    `origin/main`. The release workflow builds the GitHub release notes with git-cliff.
-    `CHANGELOG.md` is hand-written through 0.5.0; from the next release on,
-    `pixi r changelog-update vX.Y.Z` prepends each release's entries below its preamble.
+    `origin/main`. The release workflow publishes a release's `CHANGELOG.md` section
+    when one exists and git-cliff's notes, with the tag summary, otherwise.
+    `CHANGELOG.md` is hand-written through 0.5.0; after each later release,
+    `pixi r changelog-update` prepends that release's git-cliff entries below its
+    preamble.
 - **Rejected:** Rewriting `CHANGELOG.md` from commit history, which would replace the
     hand-written entries.
 

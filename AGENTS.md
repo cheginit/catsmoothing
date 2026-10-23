@@ -143,9 +143,10 @@ typecheck, lint, and audit jobs; `release.yml` builds the wheels on every PR; an
     force pushes, and deletion of `main` (D-22).
 - PRs fill in `.github/PULL_REQUEST_TEMPLATE.md` and name the issue they finish with
     `Closes #N`.
-- `CHANGELOG.md` is hand-written through 0.5.0. From the next release on, git-cliff
-    builds the release notes from commit messages, and `pixi r changelog-update vX.Y.Z`
-    prepends them to `CHANGELOG.md` (D-19).
+- `CHANGELOG.md` is hand-written through 0.5.0, whose release PR renames its
+    `[unreleased]` heading to `[0.5.0] - <date>`. Later releases get their notes from
+    git-cliff and the tag message; after each one, `pixi r changelog-update` prepends
+    them to `CHANGELOG.md` (D-19).
 - `pixi r release vX.Y.Z [notes-file]` tags and pushes that tag, which publishes to
     PyPI. Run it only when a maintainer asks.
 
