@@ -28,4 +28,6 @@ pub enum SplineError {
     InvalidDistance,
     #[error("Too many output points requested")]
     TooManyPoints,
+    #[error("Invalid sigma_units. Use 'vertices' or 'length'.")]
+    InvalidSigmaUnits,
 }

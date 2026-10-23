@@ -1,6 +1,6 @@
 use crate::{
-    linestring, BoundaryCondition, CatmullRom, LineToSmooth, Presmoothing, Spacing, SplineError,
-    SplineOptions,
+    linestring, BoundaryCondition, CatmullRom, LineToSmooth, Presmoothing, SigmaUnits, Spacing,
+    SplineError, SplineOptions,
 };
 use numpy::ndarray::{Array2, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
@@ -49,12 +49,9 @@ fn points_to_pyarray(py: Python<'_>, points: Vec<[f64; 2]>) -> Py<PyArray2<f64>>
         .unbind()
 }
 
-// Helper: per-line Gaussian sigmas (in vertices) as presmoothing settings.
-fn gaussian_presmoothing(sigmas: Vec<Option<f64>>) -> Vec<Option<Presmoothing>> {
-    sigmas
-        .into_iter()
-        .map(|s| s.map(|sigma| Presmoothing::Gaussian { sigma }))
-        .collect()
+// Helper: an optional Gaussian sigma as a presmoothing setting.
+fn gaussian_presmoothing(sigma: Option<f64>, units: SigmaUnits) -> Option<Presmoothing> {
+    sigma.map(|sigma| Presmoothing::Gaussian { sigma, units })
 }
 
 // Helper: validate array length matches expected count, returning PyErr if not
@@ -75,12 +72,14 @@ fn validate_array_length(arr_len: usize, expected: usize, name: &str) -> PyResul
 ///
 /// Returns:
 ///   - list of 1D NumPy arrays of tangent angles.
-#[pyfunction(signature = (vertices, gaussian_sigmas=None))]
+#[pyfunction(signature = (vertices, gaussian_sigmas=None, sigma_units="vertices"))]
 fn linestrings_tangent_angles(
     py: Python,
     vertices: Vec<PyReadonlyArray2<f64>>,
     gaussian_sigmas: Option<Vec<Option<f64>>>,
+    sigma_units: &str,
 ) -> PyResult<Vec<Py<PyArray1<f64>>>> {
+    let units: SigmaUnits = sigma_units.parse()?;
     let n_lines = vertices.len();
     let gs = gaussian_sigmas.unwrap_or_else(|| vec![None; n_lines]);
     validate_array_length(gs.len(), n_lines, "gaussian_sigmas")?;
@@ -90,7 +89,13 @@ fn linestrings_tangent_angles(
         .map(|line_arr| array2_to_vec(line_arr.as_array()))
         .collect::<PyResult<_>>()?;
     let angles = py
-        .detach(|| linestring::lines_tangents(lines_vec, gaussian_presmoothing(gs)))
+        .detach(|| {
+            let presmoothing = gs
+                .into_iter()
+                .map(|s| gaussian_presmoothing(s, units))
+                .collect();
+            linestring::lines_tangents(lines_vec, presmoothing)
+        })
         .map_err(PyErr::from)?;
 
     Ok(angles
@@ -116,7 +121,8 @@ fn linestrings_tangent_angles(
         distances=None,
         n_pts=None,
         gaussian_sigmas=None,
-        bc_types=None
+        bc_types=None,
+        sigma_units="vertices"
     )
 )]
 fn smooth_linestrings(
@@ -126,7 +132,9 @@ fn smooth_linestrings(
     n_pts: Option<PyReadonlyArray1<i64>>,
     gaussian_sigmas: Option<PyReadonlyArray1<f64>>,
     bc_types: Option<Vec<String>>,
+    sigma_units: &str,
 ) -> PyResult<Vec<Py<PyArray2<f64>>>> {
+    let units: SigmaUnits = sigma_units.parse()?;
     let n_lines = lines.len();
     let lines_vec: Vec<Vec<[f64; 2]>> = lines
         .iter()
@@ -162,7 +170,7 @@ fn smooth_linestrings(
         let options = SplineOptions {
             alpha: Some(0.5),
             bc_type: bc_conv[i].unwrap_or(BoundaryCondition::Clamped),
-            presmoothing: gs[i].map(|sigma| Presmoothing::Gaussian { sigma }),
+            presmoothing: gaussian_presmoothing(gs[i], units),
             ..SplineOptions::default()
         };
         jobs.push(LineToSmooth {
@@ -197,7 +205,14 @@ struct CatmullRomWrapper {
 #[pymethods]
 impl CatmullRomWrapper {
     #[new]
-    #[pyo3(signature = (vertices, grid=None, alpha=None, bc_type="natural", gaussian_sigma=None))]
+    #[pyo3(signature = (
+        vertices,
+        grid=None,
+        alpha=None,
+        bc_type="natural",
+        gaussian_sigma=None,
+        sigma_units="vertices"
+    ))]
     fn new(
         py: Python,
         vertices: PyReadonlyArray2<f64>,
@@ -205,7 +220,9 @@ impl CatmullRomWrapper {
         alpha: Option<f64>,
         bc_type: &str,
         gaussian_sigma: Option<f64>,
+        sigma_units: &str,
     ) -> PyResult<Self> {
+        let units: SigmaUnits = sigma_units.parse()?;
         let verts: Vec<[f64; 2]> = array2_to_vec(vertices.as_array())?;
         let grid_opt: Option<Vec<f64>> = grid.map(|g| g.as_array().to_vec());
         let bc: BoundaryCondition = bc_type.parse()?;
@@ -215,7 +232,7 @@ impl CatmullRomWrapper {
                     grid: grid_opt,
                     alpha,
                     bc_type: bc,
-                    presmoothing: gaussian_sigma.map(|sigma| Presmoothing::Gaussian { sigma }),
+                    presmoothing: gaussian_presmoothing(gaussian_sigma, units),
                 };
                 CatmullRom::new(verts, options)
             })

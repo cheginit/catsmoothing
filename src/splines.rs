@@ -163,12 +163,35 @@ impl Segment {
     }
 }
 
+/// Units of a Gaussian smoothing width.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SigmaUnits {
+    /// Vertex index steps.
+    #[default]
+    Vertices,
+    /// Euclidean length along the input polyline, in coordinate units.
+    Length,
+}
+
+impl FromStr for SigmaUnits {
+    type Err = SplineError;
+
+    /// Parses `"vertices"` or `"length"`, ignoring case.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "vertices" => Ok(Self::Vertices),
+            "length" => Ok(Self::Length),
+            _ => Err(SplineError::InvalidSigmaUnits),
+        }
+    }
+}
+
 /// Vertex smoothing applied before a spline is fitted.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Presmoothing {
-    /// Gaussian kernel whose standard deviation `sigma` counts vertices. Open lines keep their
-    /// end vertices and reflect through them; closed rings wrap around.
-    Gaussian { sigma: f64 },
+    /// Gaussian kernel with standard deviation `sigma`. Open lines keep their end vertices and
+    /// reflect through them; closed rings wrap around.
+    Gaussian { sigma: f64, units: SigmaUnits },
 }
 
 /// How a [`CatmullRom`] is built. The default is a uniform grid, natural ends, and no
@@ -218,7 +241,7 @@ impl CatmullRom {
         if alpha.is_some_and(|a| !a.is_finite()) {
             return Err(SplineError::InvalidAlpha);
         }
-        if let Some(Presmoothing::Gaussian { sigma }) = presmoothing {
+        if let Some(Presmoothing::Gaussian { sigma, .. }) = presmoothing {
             if !(sigma.is_finite() && sigma >= 0.0) {
                 return Err(SplineError::InvalidGaussianSigma);
             }
@@ -249,9 +272,10 @@ impl CatmullRom {
         let vertices_vec: Vec<Vec2D> = vertices.iter().map(|&v| Vec2D::new(v[0], v[1])).collect();
         let closed = bc_type == BoundaryCondition::Closed;
         let vertices_vec = match presmoothing {
-            Some(Presmoothing::Gaussian { sigma }) => {
-                presmooth::gaussian(&vertices_vec, sigma, closed)
-            }
+            Some(Presmoothing::Gaussian { sigma, units }) => match units {
+                SigmaUnits::Vertices => presmooth::gaussian(&vertices_vec, sigma, closed),
+                SigmaUnits::Length => presmooth::gaussian_by_length(&vertices_vec, sigma, closed),
+            },
             None => vertices_vec,
         };
 
