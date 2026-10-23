@@ -101,11 +101,11 @@ class CatmullRom:
     >>> s = CatmullRom(verts, alpha=0.5, bc_type="clamped")
     >>> grid = np.linspace(0, s.grid[-1], 5)
     >>> s.evaluate(grid)
-    array([[0.        , 0.        ],
-           [0.78125   , 0.9375    ],
-           [1.5625    , 0.375     ],
-           [2.34375   , 0.21875   ],
-           [3.        , 1.        ]])
+    array([[0.      , 0.      ],
+           [0.75    , 0.890625],
+           [1.5     , 0.5     ],
+           [2.25    , 0.109375],
+           [3.      , 1.      ]])
 
     References
     ----------
