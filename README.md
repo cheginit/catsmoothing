@@ -32,7 +32,8 @@ You can try CatSmoothing directly in your browser by clicking the Binder badge a
     (points are spaced by equal arc length, computed with Gauss-Legendre quadrature)
 - Computing tangent vectors at each vertex of a line
 - Optional vertex pre-smoothing to reduce noise before fitting: a Gaussian filter with
-    sigma in vertices or in length along the line, or shrinkage-free Taubin smoothing
+    sigma in vertices or in length along the line, or Taubin smoothing that keeps the
+    size of well-sampled shapes
 - Optional curvature continuity (G2 or C2) through continuity-enhancing splits
 
 ## Installation
@@ -126,8 +127,9 @@ The smoothing functions and `CatmullRom` accept keyword-only options:
 
 - `sigma_units="length"` measures the Gaussian sigma in coordinate units along the line,
     so unevenly spaced vertices are smoothed evenly.
-- `taubin_iterations=n` applies Taubin smoothing, which damps jitter while keeping a
-    curve's size (Gaussian smoothing shrinks closed rings).
+- `taubin_iterations=n` applies Taubin smoothing, which damps jitter and keeps the size
+    of curves drawn with more than about a dozen vertices per turn (Gaussian smoothing
+    shrinks closed rings).
 - `continuity="g2"` makes curvature continuous, and `continuity="c2"` also makes the
     second derivative continuous; vertices and their tangents are unchanged.
 
