@@ -368,6 +368,10 @@ def test_overflowing_coordinates_raise() -> None:
     s = CatmullRom([(0, 0), (1e155, 0), (2e155, 0)])
     with pytest.raises(ValueError, match="not finite"):
         s.uniform_distances(3)
+    smoothed = CatmullRom(
+        [(0, 0), (1e155, 3e154), (2e155, 0)], gaussian_sigma=1e154, sigma_units="length"
+    )
+    assert np.all(np.isfinite(smoothed.evaluate(smoothed.grid)))
 
 
 def test_repeated_vertices() -> None:
