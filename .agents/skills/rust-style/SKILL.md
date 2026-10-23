@@ -18,7 +18,7 @@ apply.
 - `src/lib.rs` holds module declarations and re-exports only. Name a new module after
     its primary type (`foo.rs` for `Foo`).
 - One `use` statement imports from one module:
-    `use crate::splines::{CatmullRom, Spacing};` is fine,
+    `use crate::splines::{CatmullRom, SplineOptions};` is fine,
     `use crate::{splines::CatmullRom, error::SplineError};` is not.
 - Import types and traits unqualified. Call a free function from another module through
     its module name: `presmooth::gaussian(...)`. `io::Error`-style qualification is fine
@@ -54,22 +54,30 @@ apply.
 - Define a trait only for generics or `dyn`, never to group methods. Name an extension
     trait `...Ext`. Prefer generics to `dyn Trait` in numeric loops.
 - Overload operators only for math, as `Vec2D` does.
+- Write a function, type, or module before a `macro_rules!` macro, and a `macro_rules!`
+    macro before a procedural one.
+- Never reach into a poisoned mutex; let the panic that poisoned it propagate.
 
 ## Naming
 
-- Follow the standard library: `as_`, `to_`, `into_` conversions; `new`, `try_new` for a
-    fallible constructor, `from_foo` beside a `From` impl; getters `foo()`, `foo_mut()`,
-    `set_foo()`, `take_foo()`.
+- Follow the standard library: `as_`, `to_`, `into_` conversions; `new`, with `try_new`
+    for a new fallible constructor (`CatmullRom::new` returns `Result` and predates this
+    rule); `from_foo` beside a `From` impl; getters `foo()`, `foo_mut()`, `set_foo()`,
+    `take_foo()`.
 - Spell words out (`vertices`, `tolerance`, `distance`). Keep standard terms such as
     `alpha`, `sigma`, `bc`, and math symbols that match a cited paper's notation.
-- Name a lifetime after what it borrows once a signature needs more than two.
+- Name a lifetime after what it borrows once a signature needs more than two. A generic
+    parameter gets a short name hinting at its main bound; `T` fits a parameter that
+    takes almost any type.
 
 ## Documentation
 
-- Every public item gets `///` and every module a `//!` header. Say what the code does
-    not: units, invariants, the parameter domain, the paper an equation comes from.
-- Document `# Errors` and `# Panics` (clippy checks that the sections exist). Enum
-    variants with self-explanatory names can go undocumented.
+- Document public functions and types with `///`, and give each new module a `//!`
+    header. Fields and enum variants with self-explanatory names can go undocumented.
+    Say what the code does not: units, invariants, the parameter domain, the paper an
+    equation comes from.
+- Add `# Errors` and `# Panics` sections; clippy flags a public function that returns
+    `Result` or can panic without them.
 
 ## Implementation
 
