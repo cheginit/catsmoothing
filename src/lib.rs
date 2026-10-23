@@ -13,4 +13,4 @@ pub use error::SplineError;
 pub use linestring::{
     line_tangents, lines_tangents, smooth_linestring, smooth_linestrings, LineToSmooth, Spacing,
 };
-pub use splines::{BoundaryCondition, CatmullRom, Presmoothing, SplineOptions};
+pub use splines::{BoundaryCondition, CatmullRom, Presmoothing, SigmaUnits, SplineOptions};

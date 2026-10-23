@@ -9,6 +9,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `sigma_units="length"` measures the Gaussian sigma in coordinate length along the
+    line. Each vertex is weighted by the length of line it stands for, so unevenly
+    spaced vertices are smoothed evenly. Available on `CatmullRom`,
+    `smooth_linestrings`, `smooth_polygon`, and `linestrings_tangent_angles`.
 ### Changed
 
 - `tolerance` and `max_iterations` of `smooth_linestrings` and `smooth_polygon` are

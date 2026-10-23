@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     FloatArray = NDArray[np.float64]
     BCType = Literal["natural", "closed", "clamped"]
+    SigmaUnits = Literal["vertices", "length"]
 
 __all__ = ["CatmullRom", "linestrings_tangent_angles", "smooth_linestrings", "smooth_polygon"]
 
@@ -66,8 +67,14 @@ class CatmullRom:
         If ``"clamped"``, endpoint tangents are set to ensure the spline passes
         through the start and end points without deviation.
     gaussian_sigma : float, optional
-        Standard deviation for Gaussian kernel. If specified, applies Gaussian
-        smoothing to the vertices before fitting the curve. Default is None (no smoothing).
+        Standard deviation of a Gaussian kernel applied to the vertices before
+        fitting, by default None (no smoothing). Open lines keep their end
+        vertices; closed rings wrap around.
+    sigma_units : {"vertices", "length"}, optional
+        Units of the Gaussian sigma: vertex index steps (default), or Euclidean
+        length along the input line in coordinate units. With ``"length"``, each
+        vertex is weighted by the length of line it stands for, so uneven vertex
+        spacing does not bias the smoothing.
 
     Examples
     --------
@@ -88,7 +95,15 @@ class CatmullRom:
         [DOI: 10.1016/B978-0-12-079050-0.50020-5](https://doi.org/10.1016/B978-0-12-079050-0.50020-5)
     """
 
-    __slots__ = ("_is_frozen", "_spline", "alpha", "bc_type", "gaussian_sigma", "grid")
+    __slots__ = (
+        "_is_frozen",
+        "_spline",
+        "alpha",
+        "bc_type",
+        "gaussian_sigma",
+        "grid",
+        "sigma_units",
+    )
 
     def __init__(
         self,
@@ -97,16 +112,19 @@ class CatmullRom:
         alpha: float | None = None,
         bc_type: BCType = "natural",
         gaussian_sigma: float | None = None,
+        *,
+        sigma_units: SigmaUnits = "vertices",
     ) -> None:
         vertices = _to_array(vertices, "f8")
         grid = _to_array(grid, "f8") if grid is not None else None
         self.alpha = float(alpha) if alpha is not None else None
         self.gaussian_sigma = float(gaussian_sigma) if gaussian_sigma is not None else None
         self.bc_type = bc_type
+        self.sigma_units = sigma_units
         if self.bc_type not in ("natural", "closed", "clamped"):
             raise ValueError("`bc_type` must be 'natural', 'closed', 'clamped'.")
         self._spline = CatmullRomWrapper(
-            vertices, grid, self.alpha, self.bc_type, self.gaussian_sigma
+            vertices, grid, self.alpha, self.bc_type, self.gaussian_sigma, sigma_units
         )
         self.grid = np.asarray(self._spline.grid)
         self._is_frozen = True
@@ -179,6 +197,8 @@ class CatmullRom:
             parts.append(f"alpha={self.alpha}")
         if self.gaussian_sigma is not None:
             parts.append(f"gaussian_sigma={self.gaussian_sigma}")
+            if self.sigma_units != "vertices":
+                parts.append(f"sigma_units='{self.sigma_units}'")
         return f"CatmullRom({', '.join(parts)})"
 
 
@@ -192,6 +212,7 @@ def smooth_linestrings(
     *,
     tolerance: float | None = None,
     max_iterations: int | None = None,
+    sigma_units: SigmaUnits = "vertices",
 ) -> LineString: ...
 
 
@@ -205,6 +226,7 @@ def smooth_linestrings(
     *,
     tolerance: float | None = None,
     max_iterations: int | None = None,
+    sigma_units: SigmaUnits = "vertices",
 ) -> list[LineString]: ...
 
 
@@ -217,6 +239,7 @@ def smooth_linestrings(
     *,
     tolerance: float | None = None,
     max_iterations: int | None = None,
+    sigma_units: SigmaUnits = "vertices",
 ) -> LineString | list[LineString]:
     """Smooth LineStrings using Centripetal Catmull-Rom splines and uniform spacing.
 
@@ -232,8 +255,9 @@ def smooth_linestrings(
         Number of points to be generated, by default None. You must specify
         either ``distances`` or ``n_pts``.
     gaussian_sigmas : list of float, optional
-        Standard deviation for Gaussian kernel, by default None,
-        i.e., no smoothing.
+        Standard deviation of a Gaussian kernel applied to each line's vertices
+        before fitting, by default None (no smoothing). Open lines keep their
+        end vertices; closed rings wrap around.
     bc_types : list of {"closed", "natural", "clamped"}, optional
         Start/end conditions for each LineString, defaults to ``clamped``.
         If ``closed``, the first vertex is reused as last vertex and an
@@ -244,6 +268,11 @@ def smooth_linestrings(
         Deprecated and ignored: points are spaced by arc length directly.
     max_iterations : int, optional
         Deprecated and ignored: points are spaced by arc length directly.
+    sigma_units : {"vertices", "length"}, optional
+        Units of the Gaussian sigma: vertex index steps (default), or Euclidean
+        length along the input line in coordinate units. With ``"length"``, each
+        vertex is weighted by the length of line it stands for, so uneven vertex
+        spacing does not bias the smoothing.
 
     Returns
     -------
@@ -266,6 +295,7 @@ def smooth_linestrings(
         _to_array(n_pts, "i8") if n_pts is not None else None,
         _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
         bc_list,
+        sigma_units,
     )
 
     to_geometry = (
@@ -282,6 +312,8 @@ def smooth_linestrings(
 def linestrings_tangent_angles(
     lines: list[LineString],
     gaussian_sigmas: list[float] | None = None,
+    *,
+    sigma_units: SigmaUnits = "vertices",
 ) -> list[FloatArray]: ...
 
 
@@ -289,12 +321,16 @@ def linestrings_tangent_angles(
 def linestrings_tangent_angles(
     lines: LineString,
     gaussian_sigmas: float | None = None,
+    *,
+    sigma_units: SigmaUnits = "vertices",
 ) -> FloatArray: ...
 
 
 def linestrings_tangent_angles(
     lines: LineString | list[LineString],
     gaussian_sigmas: float | list[float] | None = None,
+    *,
+    sigma_units: SigmaUnits = "vertices",
 ) -> FloatArray | list[FloatArray]:
     """Compute tangent angles for a line.
 
@@ -303,8 +339,14 @@ def linestrings_tangent_angles(
     lines : list of shapely.LineString
         LineStrings to be smoothed.
     gaussian_sigmas : list of float, optional
-        Standard deviation for Gaussian kernel, by default None,
-        i.e., no smoothing.
+        Standard deviation of a Gaussian kernel applied to each line's vertices
+        before fitting, by default None (no smoothing). Open lines keep their
+        end vertices; closed rings wrap around.
+    sigma_units : {"vertices", "length"}, optional
+        Units of the Gaussian sigma: vertex index steps (default), or Euclidean
+        length along the input line in coordinate units. With ``"length"``, each
+        vertex is weighted by the length of line it stands for, so uneven vertex
+        spacing does not bias the smoothing.
 
     Returns
     -------
@@ -325,6 +367,7 @@ def linestrings_tangent_angles(
     angles = _tangent_angles_rs(
         [shapely.get_coordinates(line) for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
         gs_list,
+        sigma_units,
     )
     if len(angles) == 1:
         return np.asarray(angles[0])
@@ -336,9 +379,12 @@ def _poly_smooth(
     distance: float | None = None,
     n_pts: int | None = None,
     gaussian_sigma: float | None = None,
+    sigma_units: SigmaUnits = "vertices",
 ) -> Polygon:
     """Smooth a Polygon using Catmull-Rom splines."""
-    exterior = smooth_linestrings(polygon.exterior, distance, n_pts, gaussian_sigma, "closed")
+    exterior = smooth_linestrings(
+        polygon.exterior, distance, n_pts, gaussian_sigma, "closed", sigma_units=sigma_units
+    )
     n_holes = shapely.get_num_interior_rings(polygon)
     if n_holes == 0:
         return shapely.Polygon(exterior)
@@ -348,6 +394,7 @@ def _poly_smooth(
         [n_pts] * n_holes if n_pts is not None else None,
         [gaussian_sigma] * n_holes if gaussian_sigma is not None else None,
         ["closed"] * n_holes,  # pyright: ignore[reportArgumentType]
+        sigma_units=sigma_units,
     )
     poly = shapely.Polygon(exterior, [interiors] if n_holes == 1 else interiors)
     return shapely.make_valid(poly)  # pyright: ignore[reportReturnType]
@@ -361,6 +408,7 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     *,
     tolerance: float | None = None,
     max_iterations: int | None = None,
+    sigma_units: SigmaUnits = "vertices",
 ) -> PolygonType:
     """Smooth a (Multi)Polygon using Centripetal Catmull-Rom splines with uniform spacing.
 
@@ -376,12 +424,17 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
         Number of points to be generated, by default None. You must specify
         either ``distance`` or ``n_pts``.
     gaussian_sigma : float, optional
-        Standard deviation for Gaussian kernel, by default ``None``,
-        i.e., no smoothing.
+        Standard deviation of a Gaussian kernel applied to each ring's vertices
+        before fitting, by default None (no smoothing).
     tolerance : float, optional
         Deprecated and ignored: points are spaced by arc length directly.
     max_iterations : int, optional
         Deprecated and ignored: points are spaced by arc length directly.
+    sigma_units : {"vertices", "length"}, optional
+        Units of the Gaussian sigma: vertex index steps (default), or Euclidean
+        length along the input line in coordinate units. With ``"length"``, each
+        vertex is weighted by the length of line it stands for, so uneven vertex
+        spacing does not bias the smoothing.
 
     Returns
     -------
@@ -393,11 +446,11 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
 
     _warn_ignored(tolerance, max_iterations)
     if isinstance(polygon, shapely.Polygon):
-        return _poly_smooth(polygon, distance, n_pts, gaussian_sigma)
+        return _poly_smooth(polygon, distance, n_pts, gaussian_sigma, sigma_units)
 
     return shapely.MultiPolygon(
         [
-            _poly_smooth(poly, distance, n_pts, gaussian_sigma)
+            _poly_smooth(poly, distance, n_pts, gaussian_sigma, sigma_units)
             for poly in polygon.geoms
         ]
     )

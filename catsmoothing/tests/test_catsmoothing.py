@@ -282,6 +282,18 @@ def test_distances_are_geometric(distance: float, n_expected: int) -> None:
     assert_close(np.diff(coords[:, 0]), np.full(n_expected - 1, 100 / (n_expected - 1)), 1e-9)
 
 
+def test_sigma_units_length() -> None:
+    x = np.r_[np.linspace(0, 5, 11), np.linspace(5.125, 10, 40)]
+    line = shapely.LineString(np.c_[x, np.sin(x)])
+    by_length = cs.smooth_linestrings(line, n_pts=30, gaussian_sigmas=0.5, sigma_units="length")
+    by_vertex = cs.smooth_linestrings(line, n_pts=30, gaussian_sigmas=2.0)
+    assert not by_length.equals_exact(by_vertex, 1e-6)
+    s = CatmullRom(np.c_[x, np.sin(x)], alpha=0.5, gaussian_sigma=0.5, sigma_units="length")
+    assert "sigma_units='length'" in repr(s)
+    with pytest.raises(ValueError, match="sigma_units"):
+        cs.smooth_linestrings(line, n_pts=30, gaussian_sigmas=0.5, sigma_units="meters")  # pyright: ignore[reportArgumentType]
+
+
 def test_repeated_vertices() -> None:
     line = shapely.LineString([(0, 0), (1, 1), (1, 1), (2, 0)])
     result = cs.smooth_linestrings(line, n_pts=5)

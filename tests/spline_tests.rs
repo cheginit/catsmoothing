@@ -1,7 +1,7 @@
 use catsmoothing::SplineError;
 use catsmoothing::{line_tangents, lines_tangents, smooth_linestring, smooth_linestrings};
 use catsmoothing::{
-    BoundaryCondition, CatmullRom, LineToSmooth, Presmoothing, Spacing, SplineOptions,
+    BoundaryCondition, CatmullRom, LineToSmooth, Presmoothing, SigmaUnits, Spacing, SplineOptions,
 };
 use rand::prelude::*;
 use rand_distr::{Distribution, StandardNormal};
@@ -13,7 +13,10 @@ fn fit(
     bc_type: BoundaryCondition,
     sigma: Option<f64>,
 ) -> Result<CatmullRom, SplineError> {
-    let presmoothing = sigma.map(|sigma| Presmoothing::Gaussian { sigma });
+    let presmoothing = sigma.map(|sigma| Presmoothing::Gaussian {
+        sigma,
+        units: SigmaUnits::Vertices,
+    });
     CatmullRom::new(
         vertices,
         SplineOptions {
@@ -30,7 +33,10 @@ fn smooth_options(sigma: Option<f64>, bc_type: Option<BoundaryCondition>) -> Spl
     SplineOptions {
         alpha: Some(0.5),
         bc_type: bc_type.unwrap_or(BoundaryCondition::Clamped),
-        presmoothing: sigma.map(|sigma| Presmoothing::Gaussian { sigma }),
+        presmoothing: sigma.map(|sigma| Presmoothing::Gaussian {
+            sigma,
+            units: SigmaUnits::Vertices,
+        }),
         ..SplineOptions::default()
     }
 }
@@ -167,8 +173,14 @@ fn test_compute_tangent_angles() {
     assert_close(&[angles[0][2]], &[-0.983], 1e-3);
 
     // Test with Gaussian smoothing
-    let smoothed_angles =
-        line_tangents(vertices, Some(Presmoothing::Gaussian { sigma: 0.5 })).unwrap();
+    let smoothed_angles = line_tangents(
+        vertices,
+        Some(Presmoothing::Gaussian {
+            sigma: 0.5,
+            units: SigmaUnits::Vertices,
+        }),
+    )
+    .unwrap();
     assert_eq!(smoothed_angles.len(), angles[0].len());
 }
 
