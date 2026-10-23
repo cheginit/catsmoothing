@@ -12,8 +12,9 @@ on:
   workflow_dispatch:
   workflow_call:
 
+# workflow_ref differs between a direct run and a call from release.yml, which share a name.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow_ref }}
   cancel-in-progress: true
 
 jobs:
