@@ -85,8 +85,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     before any batch call used to pin the thread pool to all available cores.
 - Invalid inputs raise `ValueError` where they used to raise `PanicException` or return
     NaN: `n_pts` below 2, nonpositive or nonfinite `distances`, vertex arrays without
-    exactly two columns, nonfinite vertices, `alpha` or `gaussian_sigma`, explicit grids
-    that are not strictly increasing, and a nonpositive `tolerance`.
+    exactly two columns, nonfinite vertices, `alpha` or `gaussian_sigma`, and explicit
+    grids that are not strictly increasing.
 - Non-contiguous NumPy arrays (for example `d[::2]`) are accepted everywhere.
 - Coordinates so large that curve lengths overflow raise `ValueError`.
 - Repeated consecutive vertices are dropped before fitting whenever the grid is
