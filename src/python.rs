@@ -1,4 +1,7 @@
-use crate::{linestring, BoundaryCondition, CatmullRom, SplineError};
+use crate::{
+    linestring, BoundaryCondition, CatmullRom, LineToSmooth, Presmoothing, Spacing, SplineError,
+    SplineOptions,
+};
 use numpy::ndarray::{Array2, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
@@ -46,6 +49,14 @@ fn points_to_pyarray(py: Python<'_>, points: Vec<[f64; 2]>) -> Py<PyArray2<f64>>
         .unbind()
 }
 
+// Helper: per-line Gaussian sigmas (in vertices) as presmoothing settings.
+fn gaussian_presmoothing(sigmas: Vec<Option<f64>>) -> Vec<Option<Presmoothing>> {
+    sigmas
+        .into_iter()
+        .map(|s| s.map(|sigma| Presmoothing::Gaussian { sigma }))
+        .collect()
+}
+
 // Helper: validate array length matches expected count, returning PyErr if not
 fn validate_array_length(arr_len: usize, expected: usize, name: &str) -> PyResult<()> {
     if arr_len != expected {
@@ -79,7 +90,7 @@ fn linestrings_tangent_angles(
         .map(|line_arr| array2_to_vec(line_arr.as_array()))
         .collect::<PyResult<_>>()?;
     let angles = py
-        .detach(|| linestring::lines_tangents(lines_vec, gs))
+        .detach(|| linestring::lines_tangents(lines_vec, gaussian_presmoothing(gs)))
         .map_err(PyErr::from)?;
 
     Ok(angles
@@ -141,8 +152,28 @@ fn smooth_linestrings(
         vec![None; n_lines]
     };
 
+    let mut jobs = Vec::with_capacity(n_lines);
+    for (i, vertices) in lines_vec.into_iter().enumerate() {
+        let spacing = match (n_pts_vec[i], ds[i]) {
+            (Some(n), _) => Spacing::Count(n),
+            (None, Some(d)) => Spacing::MaxDistance(d),
+            (None, None) => return Err(SplineError::InvalidSmoothingParameters.into()),
+        };
+        let options = SplineOptions {
+            alpha: Some(0.5),
+            bc_type: bc_conv[i].unwrap_or(BoundaryCondition::Clamped),
+            presmoothing: gs[i].map(|sigma| Presmoothing::Gaussian { sigma }),
+            ..SplineOptions::default()
+        };
+        jobs.push(LineToSmooth {
+            vertices,
+            spacing,
+            options,
+        });
+    }
+
     let smoothed_vec = py
-        .detach(|| linestring::smooth_linestrings(lines_vec, ds, n_pts_vec, gs, bc_conv))
+        .detach(|| linestring::smooth_linestrings(jobs))
         .map_err(PyErr::from)?;
 
     Ok(smoothed_vec
@@ -179,7 +210,15 @@ impl CatmullRomWrapper {
         let grid_opt: Option<Vec<f64>> = grid.map(|g| g.as_array().to_vec());
         let bc: BoundaryCondition = bc_type.parse()?;
         let spline = py
-            .detach(|| CatmullRom::new(verts, grid_opt, alpha, bc, gaussian_sigma))
+            .detach(|| {
+                let options = SplineOptions {
+                    grid: grid_opt,
+                    alpha,
+                    bc_type: bc,
+                    presmoothing: gaussian_sigma.map(|sigma| Presmoothing::Gaussian { sigma }),
+                };
+                CatmullRom::new(verts, options)
+            })
             .map_err(PyErr::from)?;
         Ok(CatmullRomWrapper { inner: spline })
     }

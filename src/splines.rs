@@ -56,9 +56,10 @@ impl Mul<f64> for Vec2D {
 }
 
 /// End conditions of a spline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum BoundaryCondition {
     /// Zero second derivative at both ends.
+    #[default]
     Natural,
     /// Periodic: the curve returns to its first vertex with matching tangents.
     Closed,
@@ -162,6 +163,27 @@ impl Segment {
     }
 }
 
+/// Vertex smoothing applied before a spline is fitted.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Presmoothing {
+    /// Gaussian kernel whose standard deviation `sigma` counts vertices. Open lines keep their
+    /// end vertices and reflect through them; closed rings wrap around.
+    Gaussian { sigma: f64 },
+}
+
+/// How a [`CatmullRom`] is built. The default is a uniform grid, natural ends, and no
+/// presmoothing.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct SplineOptions {
+    /// Parameter value at each vertex; ignored when `alpha` is set.
+    pub grid: Option<Vec<f64>>,
+    /// Builds the grid from chord lengths raised to `alpha`: `0.5` is centripetal, `0`
+    /// uniform, `1` chordal.
+    pub alpha: Option<f64>,
+    pub bc_type: BoundaryCondition,
+    pub presmoothing: Option<Presmoothing>,
+}
+
 /// A cubic Catmull-Rom spline through 2D vertices, one Hermite segment per vertex pair.
 #[derive(Debug)]
 pub struct CatmullRom {
@@ -172,24 +194,21 @@ pub struct CatmullRom {
 impl CatmullRom {
     /// Fits a spline through `vertices`.
     ///
-    /// `alpha` builds the grid from chord lengths raised to `alpha` (`0.5` is centripetal,
-    /// `0` uniform, `1` chordal) and takes precedence over `grid`; with neither, the grid is
-    /// `0, 1, 2, ...`. `gaussian_sigma` (in vertices) smooths the vertices first: open lines
-    /// keep their end vertices and reflect through them, closed rings wrap around.
-    /// Closed curves append the first vertex unless the last vertex already matches it.
-    /// Without an explicit `grid`, repeated consecutive vertices are dropped.
+    /// Without `alpha` or `grid`, the grid is `0, 1, 2, ...`. Closed curves append the first
+    /// vertex unless the last vertex already matches it. Without an explicit grid, repeated
+    /// consecutive vertices are dropped.
     ///
     /// # Errors
     ///
     /// Fails for fewer than two vertices, nonfinite inputs, a grid that is not strictly
-    /// increasing or does not match the vertex count, or a negative `gaussian_sigma`.
-    pub fn new(
-        vertices: Vec<[f64; 2]>,
-        grid: Option<Vec<f64>>,
-        alpha: Option<f64>,
-        bc_type: BoundaryCondition,
-        gaussian_sigma: Option<f64>,
-    ) -> Result<Self, SplineError> {
+    /// increasing or does not match the vertex count, or invalid presmoothing settings.
+    pub fn new(vertices: Vec<[f64; 2]>, options: SplineOptions) -> Result<Self, SplineError> {
+        let SplineOptions {
+            grid,
+            alpha,
+            bc_type,
+            presmoothing,
+        } = options;
         if vertices.len() < 2 {
             return Err(SplineError::TooFewVertices);
         }
@@ -199,8 +218,10 @@ impl CatmullRom {
         if alpha.is_some_and(|a| !a.is_finite()) {
             return Err(SplineError::InvalidAlpha);
         }
-        if gaussian_sigma.is_some_and(|s| !(s.is_finite() && s >= 0.0)) {
-            return Err(SplineError::InvalidGaussianSigma);
+        if let Some(Presmoothing::Gaussian { sigma }) = presmoothing {
+            if !(sigma.is_finite() && sigma >= 0.0) {
+                return Err(SplineError::InvalidGaussianSigma);
+            }
         }
 
         // Repeated vertices would give zero grid steps; an explicit grid keeps them.
@@ -226,9 +247,10 @@ impl CatmullRom {
         };
 
         let vertices_vec: Vec<Vec2D> = vertices.iter().map(|&v| Vec2D::new(v[0], v[1])).collect();
-        let vertices_vec = match gaussian_sigma {
-            Some(sigma) => {
-                presmooth::gaussian(&vertices_vec, sigma, bc_type == BoundaryCondition::Closed)
+        let closed = bc_type == BoundaryCondition::Closed;
+        let vertices_vec = match presmoothing {
+            Some(Presmoothing::Gaussian { sigma }) => {
+                presmooth::gaussian(&vertices_vec, sigma, closed)
             }
             None => vertices_vec,
         };

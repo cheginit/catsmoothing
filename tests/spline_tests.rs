@@ -1,8 +1,39 @@
 use catsmoothing::SplineError;
 use catsmoothing::{line_tangents, lines_tangents, smooth_linestring, smooth_linestrings};
-use catsmoothing::{BoundaryCondition, CatmullRom};
+use catsmoothing::{
+    BoundaryCondition, CatmullRom, LineToSmooth, Presmoothing, Spacing, SplineOptions,
+};
 use rand::prelude::*;
 use rand_distr::{Distribution, StandardNormal};
+
+fn fit(
+    vertices: Vec<[f64; 2]>,
+    grid: Option<Vec<f64>>,
+    alpha: Option<f64>,
+    bc_type: BoundaryCondition,
+    sigma: Option<f64>,
+) -> Result<CatmullRom, SplineError> {
+    let presmoothing = sigma.map(|sigma| Presmoothing::Gaussian { sigma });
+    CatmullRom::new(
+        vertices,
+        SplineOptions {
+            grid,
+            alpha,
+            bc_type,
+            presmoothing,
+        },
+    )
+}
+
+/// The options `smooth_linestrings` uses from Python: centripetal, clamped by default.
+fn smooth_options(sigma: Option<f64>, bc_type: Option<BoundaryCondition>) -> SplineOptions {
+    SplineOptions {
+        alpha: Some(0.5),
+        bc_type: bc_type.unwrap_or(BoundaryCondition::Clamped),
+        presmoothing: sigma.map(|sigma| Presmoothing::Gaussian { sigma }),
+        ..SplineOptions::default()
+    }
+}
 
 fn assert_close(a: &[f64], b: &[f64], tol: f64) {
     assert_eq!(a.len(), b.len(), "Arrays must have same length");
@@ -34,8 +65,7 @@ fn test_spline_alpha_0() {
         [3.0, 0.0],
     ];
     let n_pts = 15.0;
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.0), BoundaryCondition::Closed, None).unwrap();
+    let spline = fit(vertices, None, Some(0.0), BoundaryCondition::Closed, None).unwrap();
 
     let grid_start = spline.grid()[0];
     let grid_end = spline.grid().last().unwrap();
@@ -60,8 +90,7 @@ fn test_spline_alpha_0_5() {
         [3.0, 0.0],
     ];
     let n_pts = 15.0;
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
 
     let grid_start = spline.grid()[0];
     let grid_end = spline.grid().last().unwrap();
@@ -85,8 +114,7 @@ fn test_spline_alpha_1() {
         [3.0, 0.0],
     ];
     let n_pts = 15.0;
-    let spline =
-        CatmullRom::new(vertices, None, Some(1.0), BoundaryCondition::Closed, None).unwrap();
+    let spline = fit(vertices, None, Some(1.0), BoundaryCondition::Closed, None).unwrap();
 
     let grid_start = spline.grid()[0];
     let grid_end = *spline.grid().last().unwrap();
@@ -103,8 +131,7 @@ fn test_spline_alpha_1() {
 fn test_uniform_distances() {
     // Simple curved path
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
     let distances = spline.uniform_distances(5).unwrap();
 
@@ -140,7 +167,8 @@ fn test_compute_tangent_angles() {
     assert_close(&[angles[0][2]], &[-0.983], 1e-3);
 
     // Test with Gaussian smoothing
-    let smoothed_angles = line_tangents(vertices, Some(0.5)).unwrap();
+    let smoothed_angles =
+        line_tangents(vertices, Some(Presmoothing::Gaussian { sigma: 0.5 })).unwrap();
     assert_eq!(smoothed_angles.len(), angles[0].len());
 }
 
@@ -173,7 +201,12 @@ fn test_smooth_linestring_np() {
         })
         .sum();
 
-    let smoothed = smooth_linestring(vertices, None, Some(30), Some(2.0), None).unwrap();
+    let smoothed = smooth_linestring(
+        vertices,
+        Spacing::Count(30),
+        smooth_options(Some(2.0), None),
+    )
+    .unwrap();
 
     // Check that smoothed line has 30 points
     assert_eq!(smoothed.len(), 30);
@@ -210,7 +243,12 @@ fn test_smooth_linestring_dist() {
         })
         .sum();
 
-    let smoothed = smooth_linestring(vertices, Some(0.2), None, Some(2.0), None).unwrap();
+    let smoothed = smooth_linestring(
+        vertices,
+        Spacing::MaxDistance(0.2),
+        smooth_options(Some(2.0), None),
+    )
+    .unwrap();
 
     // The fewest evenly spaced points with chords no longer than the distance.
     let chords: Vec<f64> = smoothed
@@ -264,17 +302,27 @@ fn test_smooth_linestrings() {
         })
         .collect();
 
-    // Define per-line parameters
-    let distances = vec![None, Some(0.2), None];
-    let n_pts_list = vec![Some(30), None, Some(40)];
-    let gaussian_sigmas = vec![Some(2.0), None, Some(1.5)];
-    let bc_types = vec![
-        Some(BoundaryCondition::Clamped),
-        Some(BoundaryCondition::Natural),
-        None,
+    let spacings = [
+        Spacing::Count(30),
+        Spacing::MaxDistance(0.2),
+        Spacing::Count(40),
     ];
-    let smoothed_lines =
-        smooth_linestrings(lines, distances, n_pts_list, gaussian_sigmas, bc_types).unwrap();
+    let options = [
+        smooth_options(Some(2.0), Some(BoundaryCondition::Clamped)),
+        smooth_options(None, Some(BoundaryCondition::Natural)),
+        smooth_options(Some(1.5), None),
+    ];
+    let jobs: Vec<LineToSmooth> = lines
+        .into_iter()
+        .zip(spacings)
+        .zip(options)
+        .map(|((vertices, spacing), options)| LineToSmooth {
+            vertices,
+            spacing,
+            options,
+        })
+        .collect();
+    let smoothed_lines = smooth_linestrings(jobs).unwrap();
 
     assert_eq!(smoothed_lines[0].len(), 30);
     assert_eq!(smoothed_lines[2].len(), 40);
@@ -302,8 +350,7 @@ fn test_smooth_linestrings() {
 #[test]
 fn test_evaluate_returns_error_on_invalid_derivative_order() {
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
     let distances = vec![0.0, 0.5, 1.0];
 
     // Valid orders succeed
@@ -328,8 +375,7 @@ fn test_second_derivative_varies_with_parameter() {
     // vary linearly with the parameter t (since d²/dt²(t³) = 6t).
     // Test that evaluating at different distances produces different results.
     let vertices = vec![[0.0, 0.0], [1.0, 2.0], [3.0, 1.0], [4.0, 0.0]];
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
     let grid_end = *spline.grid().last().unwrap();
     let distances: Vec<f64> = (0..20).map(|i| grid_end * (i as f64) / 19.0).collect();
@@ -352,8 +398,7 @@ fn test_second_derivative_at_segment_start_is_finite() {
     // At t=0, the second derivative is [6*0, 2, 0, 0] dot coeffs = [0, 2, 0, 0] dot coeffs
     // This should produce finite values
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
     let distances = vec![spline.grid()[0]];
     let result = spline.evaluate(&distances, 2).unwrap();
@@ -364,8 +409,7 @@ fn test_second_derivative_at_segment_start_is_finite() {
 #[test]
 fn test_evaluate_empty_distances() {
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
     let result = spline.evaluate(&[], 0).unwrap();
     assert!(result.is_empty());
@@ -375,8 +419,7 @@ fn test_evaluate_empty_distances() {
 fn test_evaluate_boundary_distances() {
     // Test that distances at/beyond grid boundaries are handled correctly
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
     let grid_start = spline.grid()[0];
     let grid_end = *spline.grid().last().unwrap();
@@ -399,8 +442,7 @@ fn test_evaluate_boundary_distances() {
 #[test]
 fn test_uniform_distances_single_point() {
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
     // n_pts < 2 should return a single grid point
     let result = spline.uniform_distances(1).unwrap();
@@ -412,8 +454,7 @@ fn test_uniform_distances_single_point() {
 fn test_first_derivative_at_known_curve() {
     // For a symmetric parabola-like curve, the tangent at the midpoint should be horizontal
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Natural, None).unwrap();
 
     // Evaluate first derivative at the midpoint
     let mid = vec![spline.grid()[1]];
@@ -433,7 +474,7 @@ fn test_three_point_spline_all_boundary_conditions() {
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
 
     for bc_type in [BoundaryCondition::Natural, BoundaryCondition::Clamped] {
-        let spline = CatmullRom::new(vertices.clone(), None, Some(0.5), bc_type, None).unwrap();
+        let spline = fit(vertices.clone(), None, Some(0.5), bc_type, None).unwrap();
         let grid_end = *spline.grid().last().unwrap();
         let distances = vec![0.0, grid_end / 2.0, grid_end];
         let result = spline.evaluate(&distances, 0).unwrap();
@@ -455,8 +496,7 @@ fn test_closed_spline_wraps_correctly() {
         [0.0, 1.0],
         [0.0, 0.0], // duplicate first vertex
     ];
-    let spline =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
+    let spline = fit(vertices, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
 
     let grid_end = *spline.grid().last().unwrap();
     let distances: Vec<f64> = (0..40).map(|i| grid_end * (i as f64) / 39.0).collect();
@@ -472,7 +512,7 @@ fn test_closed_spline_wraps_correctly() {
 fn test_gaussian_smoothing_preserves_endpoints() {
     let vertices = vec![[0.0, 0.0], [0.5, 1.0], [1.0, 0.5], [1.5, 1.5], [2.0, 0.0]];
 
-    let spline = CatmullRom::new(
+    let spline = fit(
         vertices.clone(),
         None,
         Some(0.5),
@@ -493,8 +533,7 @@ fn test_gaussian_smoothing_preserves_endpoints() {
 #[test]
 fn test_two_vertex_open_line_is_straight() {
     for bc_type in [BoundaryCondition::Natural, BoundaryCondition::Clamped] {
-        let spline =
-            CatmullRom::new(vec![[0.0, 0.0], [2.0, 1.0]], None, Some(0.5), bc_type, None).unwrap();
+        let spline = fit(vec![[0.0, 0.0], [2.0, 1.0]], None, Some(0.5), bc_type, None).unwrap();
         let end = *spline.grid().last().unwrap();
         let points = spline
             .evaluate(&[0.0, end / 4.0, end / 2.0, end], 0)
@@ -512,7 +551,7 @@ fn test_two_vertex_open_line_is_straight() {
 #[test]
 fn test_derivatives_match_finite_differences_on_non_unit_grid() {
     let vertices = vec![[0.0, 0.0], [1.0, 2.0], [4.0, 0.0], [5.0, 3.0]];
-    let explicit = CatmullRom::new(
+    let explicit = fit(
         vertices.clone(),
         Some(vec![0.0, 2.0, 5.0, 5.5]),
         None,
@@ -520,8 +559,7 @@ fn test_derivatives_match_finite_differences_on_non_unit_grid() {
         None,
     )
     .unwrap();
-    let centripetal =
-        CatmullRom::new(vertices, None, Some(0.5), BoundaryCondition::Clamped, None).unwrap();
+    let centripetal = fit(vertices, None, Some(0.5), BoundaryCondition::Clamped, None).unwrap();
     for spline in [explicit, centripetal] {
         let h = 1e-5;
         let grid = spline.grid();
@@ -553,7 +591,7 @@ fn test_derivatives_match_finite_differences_on_non_unit_grid() {
 #[test]
 fn test_uniform_distances_respects_grid_origin() {
     let vertices = vec![[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]];
-    let spline = CatmullRom::new(
+    let spline = fit(
         vertices,
         Some(vec![10.0, 11.0, 12.0]),
         None,
@@ -569,7 +607,7 @@ fn test_uniform_distances_respects_grid_origin() {
 fn test_gaussian_smoothing_kernel_wider_than_line() {
     // sigma = 2 reaches 8 vertices on each side of a 3-vertex line, so reflections repeat.
     let sigma = 2.0_f64;
-    let spline = CatmullRom::new(
+    let spline = fit(
         vec![[0.0, 0.0], [1.0, 10.0], [2.0, 0.0]],
         None,
         Some(0.5),
@@ -595,7 +633,7 @@ fn test_gaussian_smoothing_kernel_wider_than_line() {
 fn test_repeated_vertices_are_dropped() {
     let with_repeats = vec![[0.0, 0.0], [1.0, 1.0], [1.0, 1.0], [2.0, 0.0], [2.0, 0.0]];
     let unique = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
-    let a = CatmullRom::new(
+    let a = fit(
         with_repeats,
         None,
         Some(0.5),
@@ -603,14 +641,14 @@ fn test_repeated_vertices_are_dropped() {
         None,
     )
     .unwrap();
-    let b = CatmullRom::new(unique, None, Some(0.5), BoundaryCondition::Clamped, None).unwrap();
+    let b = fit(unique, None, Some(0.5), BoundaryCondition::Clamped, None).unwrap();
     assert_eq!(a.grid(), b.grid());
     let d: Vec<f64> = (0..11).map(|i| b.grid()[2] * i as f64 / 10.0).collect();
     assert_eq!(a.evaluate(&d, 0).unwrap(), b.evaluate(&d, 0).unwrap());
 
     let all_same = vec![[1.0, 1.0]; 3];
     assert_eq!(
-        CatmullRom::new(all_same, None, Some(0.5), BoundaryCondition::Natural, None).unwrap_err(),
+        fit(all_same, None, Some(0.5), BoundaryCondition::Natural, None).unwrap_err(),
         SplineError::TooFewVertices
     );
 }
@@ -623,14 +661,13 @@ fn test_closed_ring_vertices_survive_translation() {
             .iter()
             .map(|p| [p[0] + offset, p[1] + offset])
             .collect();
-        let spline =
-            CatmullRom::new(shifted, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
+        let spline = fit(shifted, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
         assert_eq!(spline.grid().len(), 5, "offset {offset}");
     }
     // An explicitly repeated closing vertex is not doubled.
     let mut closed = ring.to_vec();
     closed.push(ring[0]);
-    let spline = CatmullRom::new(closed, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
+    let spline = fit(closed, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
     assert_eq!(spline.grid().len(), 5);
 }
 
@@ -661,7 +698,7 @@ fn test_uniform_distances_equal_arc_length_on_noisy_line() {
         BoundaryCondition::Clamped,
         BoundaryCondition::Closed,
     ] {
-        let spline = CatmullRom::new(vertices.clone(), None, Some(0.5), bc_type, None).unwrap();
+        let spline = fit(vertices.clone(), None, Some(0.5), bc_type, None).unwrap();
         let distances = spline.uniform_distances(60).unwrap();
         assert_eq!(distances[0], spline.grid()[0]);
         assert_eq!(distances[59], *spline.grid().last().unwrap());
@@ -690,7 +727,7 @@ fn test_gaussian_smoothing_keeps_straight_lines() {
         .iter()
         .map(|&t| [t, 2.0 * t + 1.0])
         .collect();
-    let spline = CatmullRom::new(
+    let spline = fit(
         vertices,
         None,
         Some(0.5),
@@ -707,7 +744,7 @@ fn test_gaussian_smoothing_keeps_straight_lines() {
 
     // Evenly spaced vertices do not move at all, even next to the ends.
     let even: Vec<[f64; 2]> = (0..9).map(|i| [i as f64, 2.0 * i as f64 + 1.0]).collect();
-    let spline = CatmullRom::new(
+    let spline = fit(
         even.clone(),
         None,
         Some(0.5),
@@ -729,8 +766,7 @@ fn test_gaussian_smoothing_treats_ring_seam_like_other_vertices() {
             [a.cos(), a.sin()]
         })
         .collect();
-    let spline =
-        CatmullRom::new(ring, None, Some(0.5), BoundaryCondition::Closed, Some(1.0)).unwrap();
+    let spline = fit(ring, None, Some(0.5), BoundaryCondition::Closed, Some(1.0)).unwrap();
     let radii: Vec<f64> = spline
         .evaluate(spline.grid(), 0)
         .unwrap()

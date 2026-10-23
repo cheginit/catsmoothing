@@ -1,6 +1,23 @@
 use crate::error::SplineError;
-use crate::splines::{BoundaryCondition, CatmullRom};
+use crate::splines::{CatmullRom, Presmoothing, SplineOptions};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+
+/// Spacing of the points a smoothed line is resampled at.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Spacing {
+    /// Exactly this many points, evenly spaced by arc length.
+    Count(usize),
+    /// The fewest evenly spaced points that are no farther apart than this along the curve.
+    MaxDistance(f64),
+}
+
+/// A line to smooth, how to fit it, and how to resample it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LineToSmooth {
+    pub vertices: Vec<[f64; 2]>,
+    pub spacing: Spacing,
+    pub options: SplineOptions,
+}
 
 /// Tangent angles in radians (`atan2(dy, dx)`) at each vertex of a centripetal spline
 /// through `line`.
@@ -10,23 +27,19 @@ use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterato
 /// Fails on the same inputs as [`CatmullRom::new`].
 pub fn line_tangents(
     line: Vec<[f64; 2]>,
-    gaussian_sigma: Option<f64>,
+    presmoothing: Option<Presmoothing>,
 ) -> Result<Vec<f64>, SplineError> {
-    let spline = CatmullRom::new(
-        line,
-        None,
-        Some(0.5),
-        BoundaryCondition::Natural,
-        gaussian_sigma,
-    )?;
-
+    let options = SplineOptions {
+        alpha: Some(0.5),
+        presmoothing,
+        ..SplineOptions::default()
+    };
+    let spline = CatmullRom::new(line, options)?;
     let tangent_vectors = spline.evaluate(spline.grid(), 1)?;
-
-    let tangent_angles: Vec<f64> = tangent_vectors
+    Ok(tangent_vectors
         .iter()
         .map(|[dx, dy]| f64::atan2(*dy, *dx))
-        .collect();
-    Ok(tangent_angles)
+        .collect())
 }
 
 /// [`line_tangents`] for each line, in parallel.
@@ -36,76 +49,54 @@ pub fn line_tangents(
 /// Fails when the input lengths differ or any line fails.
 pub fn lines_tangents(
     lines: Vec<Vec<[f64; 2]>>,
-    gaussian_sigmas: Vec<Option<f64>>,
+    presmoothing: Vec<Option<Presmoothing>>,
 ) -> Result<Vec<Vec<f64>>, SplineError> {
-    if lines.len() != gaussian_sigmas.len() {
+    if lines.len() != presmoothing.len() {
         return Err(SplineError::MismatchedInputLengths);
     }
     lines
         .into_par_iter()
-        .zip(gaussian_sigmas)
-        .map(|(vertices, gaussian_sigma)| line_tangents(vertices, gaussian_sigma))
+        .zip(presmoothing)
+        .map(|(vertices, presmoothing)| line_tangents(vertices, presmoothing))
         .collect()
 }
 
+/// Fits a spline through `vertices` and resamples it evenly by arc length.
+///
+/// # Errors
+///
+/// Fails for a count below 2, a distance that is not finite and positive, or any input
+/// [`CatmullRom::new`] rejects.
 pub fn smooth_linestring(
     vertices: Vec<[f64; 2]>,
-    distance: Option<f64>,
-    n_pts: Option<usize>,
-    gaussian_sigma: Option<f64>,
-    bc_type: Option<BoundaryCondition>,
+    spacing: Spacing,
+    options: SplineOptions,
 ) -> Result<Vec<[f64; 2]>, SplineError> {
-    if n_pts.is_none() && distance.is_none() {
-        return Err(SplineError::InvalidSmoothingParameters);
+    match spacing {
+        Spacing::Count(n) if n < 2 => return Err(SplineError::InvalidPointCount),
+        Spacing::MaxDistance(d) if !(d.is_finite() && d > 0.0) => {
+            return Err(SplineError::InvalidDistance)
+        }
+        _ => {}
     }
-    if distance.is_some_and(|d| !(d.is_finite() && d > 0.0)) {
-        return Err(SplineError::InvalidDistance);
-    }
-    if n_pts.is_some_and(|n| n < 2) {
-        return Err(SplineError::InvalidPointCount);
-    }
-    let spline = CatmullRom::new(
-        vertices,
-        None,
-        Some(0.5),
-        bc_type.unwrap_or(BoundaryCondition::Clamped),
-        gaussian_sigma,
-    )?;
-    let n_pts = match (n_pts, distance) {
-        (Some(n_pts), _) => n_pts,
-        // Even spacing no wider than `distance`: ceil(L / d) intervals, one more point.
-        (None, Some(distance)) => ((spline.length() / distance).ceil() as usize).saturating_add(1),
-        (None, None) => unreachable!("checked above"),
+    let spline = CatmullRom::new(vertices, options)?;
+    let n_pts = match spacing {
+        Spacing::Count(n) => n,
+        // ceil(L / d) intervals, one more point.
+        Spacing::MaxDistance(d) => ((spline.length() / d).ceil() as usize).saturating_add(1),
     };
     let distances = spline.uniform_distances(n_pts)?;
-    let points = spline.evaluate(&distances, 0)?;
-    Ok(points)
+    spline.evaluate(&distances, 0)
 }
 
-pub fn smooth_linestrings(
-    lines: Vec<Vec<[f64; 2]>>,
-    distances: Vec<Option<f64>>,
-    n_pts_list: Vec<Option<usize>>,
-    gaussian_sigmas: Vec<Option<f64>>,
-    bc_types: Vec<Option<BoundaryCondition>>,
-) -> Result<Vec<Vec<[f64; 2]>>, SplineError> {
-    if lines.len() != distances.len()
-        || lines.len() != n_pts_list.len()
-        || lines.len() != gaussian_sigmas.len()
-        || lines.len() != bc_types.len()
-    {
-        return Err(SplineError::MismatchedInputLengths);
-    }
+/// [`smooth_linestring`] for each line, in parallel.
+///
+/// # Errors
+///
+/// Fails when any line fails.
+pub fn smooth_linestrings(lines: Vec<LineToSmooth>) -> Result<Vec<Vec<[f64; 2]>>, SplineError> {
     lines
         .into_par_iter()
-        .zip(distances)
-        .zip(n_pts_list)
-        .zip(gaussian_sigmas)
-        .zip(bc_types)
-        .map(
-            |((((vertices, distance), n_pts), gaussian_sigma), bc_type)| {
-                smooth_linestring(vertices, distance, n_pts, gaussian_sigma, bc_type)
-            },
-        )
+        .map(|line| smooth_linestring(line.vertices, line.spacing, line.options))
         .collect()
 }
