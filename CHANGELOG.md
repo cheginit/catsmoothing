@@ -14,38 +14,40 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     spaced vertices are smoothed evenly. Available on `CatmullRom`,
     `smooth_linestrings`, `smooth_polygon`, and `linestrings_tangent_angles`.
 - `taubin_iterations` applies Taubin lambda/mu smoothing (lambda 0.5, mu -0.53) to the
-    vertices before fitting. It damps jitter while keeping a curve's size, where Gaussian
-    smoothing shrinks it. Available on the same functions as `sigma_units`.
-- `continuity="g2"` or `"c2"` makes curvature (G2), or also the second derivative
-    (C2), continuous where spline pieces join, using Yuksel's continuity-enhancing
-    splits (SIGGRAPH 2026). Each piece becomes three cubics; vertices and their tangents
-    are unchanged, and the curve stays within a few percent of a chord of the C1 shape.
+    vertices before fitting. It damps jitter while keeping a curve's size, where
+    Gaussian smoothing shrinks it. Available on the same functions as `sigma_units`.
+- `continuity="g2"` or `"c2"` makes curvature (G2), or also the second derivative (C2),
+    continuous where spline pieces join, using Yuksel's continuity-enhancing splits
+    (SIGGRAPH 2026). Each piece becomes three cubics; vertices and their tangents are
+    unchanged, and the curve stays within a few percent of a chord of the C1 shape.
     Available on `CatmullRom`, `smooth_linestrings`, and `smooth_polygon`.
+
 ### Changed
 
 - `tolerance` and `max_iterations` of `smooth_linestrings` and `smooth_polygon` are
     keyword-only.
 - Supported Python versions are 3.13 to 3.15; Python 3.10 to 3.12 are no longer
     supported. Extension builds use PyO3 0.30, which supports Python 3.15.
-- `smooth_linestrings`, `smooth_polygon`, and `CatmullRom.uniform_distances` space points
-    by equal arc length, computed with adaptive 16-point Gauss-Legendre quadrature and a
-    bracketed Newton inverse. The old fixed-point chord iteration converged on 0 of 200
-    noisy test lines and returned chords up to three times the mean; spacing is now equal
-    within about 2e-8 relative, including across points where a curve doubles back.
-    Smoothing a 2000-vertex line is about 19x faster than in 0.4.1, and 2000 lines of 100
-    vertices about 17x faster.
-- Spline segments store their cubic coefficients inline and evaluate with Horner's
-    rule, and per-line work runs serially below 4096 points. Building a 2000-vertex
-    spline is about 6x faster, and smoothing 2000 lines of 100 vertices about 2x faster.
+- `smooth_linestrings`, `smooth_polygon`, and `CatmullRom.uniform_distances` space
+    points by equal arc length, computed with adaptive 16-point Gauss-Legendre
+    quadrature and a bracketed Newton inverse. The old fixed-point chord iteration
+    converged on 0 of 200 noisy test lines and returned chords up to three times the
+    mean; spacing is now equal within about 2e-8 relative, including across points where
+    a curve doubles back. In Rust, smoothing a 2000-vertex line is about 20x faster than
+    in 0.4.1, and 2000 lines of 100 vertices about 15x faster; from Python, 10,000 lines
+    of 100 vertices take about 66 ms where 0.4.1 took about 650 ms.
+- Spline segments store their cubic coefficients inline and evaluate with Horner's rule,
+    and per-line work runs serially below 4096 points. Building a 2000-vertex spline is
+    about 6x faster, and smoothing 2000 lines of 100 vertices about 2x faster.
 - The Python bindings release the GIL while Rust computes, and
     `linestrings_tangent_angles` processes lines in parallel like `smooth_linestrings`.
 - `smooth_linestrings` and `linestrings_tangent_angles` pass all coordinates to Rust in
-    one array and build geometries in bulk; smoothing 10,000 lines of 100 vertices
-    takes 59 ms where it took 80 ms with per-line arrays.
+    one array and build geometries in bulk, which cut about 20 ms from smoothing 10,000
+    lines of 100 vertices.
 - Gaussian pre-smoothing extends open lines by point reflection through their end
     vertices, so evenly spaced straight runs stay in place; the old mirror reflection
-    shifted vertices near the ends along the line. Closed rings wrap around, so the
-    seam vertex is smoothed like every other vertex instead of staying pinned.
+    shifted vertices near the ends along the line. Closed rings wrap around, so the seam
+    vertex is smoothed like every other vertex instead of staying pinned.
 - `CatmullRom` documents and enforces 2D vertices: arrays without exactly two columns
     raise `ValueError`. A third column used to be dropped silently.
 
@@ -92,7 +94,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     output.
 - Closed curves decide whether the last vertex repeats the first with a tolerance
     relative to the ring's extent. The old test scaled with the coordinate values, so
-    rings at projected-CRS magnitudes lost real vertices within tens of meters of the start.
+    rings at projected-CRS magnitudes lost real vertices within tens of meters of the
+    start.
 
 ## [0.4.1] - 2026-02-22
 
