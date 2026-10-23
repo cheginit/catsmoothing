@@ -105,6 +105,7 @@ nav:
 - Examples:
   - Overview: examples/index.md
   - Spline Interpolation: examples/splines.ipynb
+  - What's New Since 0.4.1: examples/whats_new.ipynb
 - API Reference: reference.md
 - Release Notes: CHANGELOG.md
 - Contributing: CONTRIBUTING.md

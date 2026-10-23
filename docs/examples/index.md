@@ -29,4 +29,7 @@ pip install catsmoothing ipykernel ipywidgets matplotlib
 - [![Basin Delineation](images/alpha.png){ loading=lazy }](splines.ipynb "Basin Delineation")
     **Basin Delineation**
 
+- [![What's New Since 0.4.1](images/arc_length.png){ loading=lazy }](whats_new.ipynb "What's New Since 0.4.1")
+    **What's New Since 0.4.1**
+
 </div>
