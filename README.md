@@ -27,7 +27,7 @@ You can try CatSmoothing directly in your browser by clicking the Binder badge a
 ## Key Features
 
 - Written in Rust for performance and runs in parallel using Rayon
-- Creating splines from 2D/3D vertices of a line that allows computing n-th derivatives
+- Creating splines from 2D vertices of a line that allows computing n-th derivatives
 - Smoothing geometries with Centripetal Catmull-Rom splines with **uniform spacing**
     (spacing is determined iteratively based on the arc length of the input geometry)
 - Computing tangent vectors at each vertex of a line
@@ -53,7 +53,7 @@ micromamba install -c conda-forge catsmoothing
 
 CatSmoothing provide one class called `CatmullRom` that is general purpose, Catmull-Rom
 spline interpolation class. You can tweak the `alpha` parameter of the class to
-interpolate with different versions of the Catmull-Rom spline from 2D/3D vertices of a
+interpolate with different versions of the Catmull-Rom spline from 2D vertices of a
 line and compute n-th derivatives. For smoothing geometries, CatSmoothing uses the
 centripetal Catmull-Rom spline algorithm, i.e., `alpha=0.5`. There are two functions
 that can be used for smoothing geometries: `smooth_linestrings` and `smooth_polygon`.
