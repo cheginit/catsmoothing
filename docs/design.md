@@ -175,8 +175,8 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
 - **Decision:** The `[lints.clippy]` table in `Cargo.toml` and `clippy.toml` enforce the
     rules of the
     [Google Rust style guide](https://google.github.io/styleguide/rustguide.html) that
-    clippy can check; `.agents/skills/rust-style/SKILL.md` holds the rest. Python uses
-    ruff with `select = ["ALL"]` and NumPy docstrings.
+    clippy can check; `.agents/skills/rust-style/SKILL.md` holds the judgment rules that
+    apply to this crate. Python uses ruff with `select = ["ALL"]` and NumPy docstrings.
 - **Why:** A lint costs no agent context and fails CI. The skill loads only when an
     agent works on Rust: Claude Code through the path-scoped rule in
     `.claude/rules/rust-style.md`, Codex and Gemini through the skill listing.
