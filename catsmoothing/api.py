@@ -443,6 +443,7 @@ def _poly_smooth(
     distance: float | None = None,
     n_pts: int | None = None,
     gaussian_sigma: float | None = None,
+    *,
     sigma_units: SigmaUnits = "vertices",
     taubin_iterations: int | None = None,
     continuity: Continuity = "c1",
@@ -535,13 +536,25 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     _warn_ignored(tolerance, max_iterations)
     if isinstance(polygon, shapely.Polygon):
         return _poly_smooth(
-            polygon, distance, n_pts, gaussian_sigma, sigma_units, taubin_iterations, continuity
+            polygon,
+            distance,
+            n_pts,
+            gaussian_sigma,
+            sigma_units=sigma_units,
+            taubin_iterations=taubin_iterations,
+            continuity=continuity,
         )
 
     return shapely.MultiPolygon(
         [
             _poly_smooth(
-                poly, distance, n_pts, gaussian_sigma, sigma_units, taubin_iterations, continuity
+                poly,
+                distance,
+                n_pts,
+                gaussian_sigma,
+                sigma_units=sigma_units,
+                taubin_iterations=taubin_iterations,
+                continuity=continuity,
             )
             for poly in polygon.geoms
         ]
