@@ -1,5 +1,5 @@
 use crate::error::SplineError;
-use crate::utils::{are_points_close, interpolate};
+use crate::utils::{ends_coincide, interpolate};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::ops::{Add, Mul, Sub};
 use std::str::FromStr;
@@ -150,10 +150,8 @@ impl CatmullRom {
 
         let vertices = if bc_type == BoundaryCondition::Closed {
             let mut v = vertices;
-            if let (Some(first), Some(last)) = (v.first(), v.last()) {
-                if are_points_close(first, last) {
-                    v.pop();
-                }
+            if ends_coincide(&v) {
+                v.pop();
             }
             if let Some(first) = v.first().copied() {
                 v.push(first);

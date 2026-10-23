@@ -625,3 +625,22 @@ fn test_repeated_vertices_are_dropped() {
         SplineError::TooFewVertices
     );
 }
+
+#[test]
+fn test_closed_ring_vertices_survive_translation() {
+    let ring = [[0.0, 0.0], [100.0, 0.0], [100.0, 100.0], [0.0, 5.0]];
+    for offset in [0.0, 1e6, 4e6] {
+        let shifted: Vec<[f64; 2]> = ring
+            .iter()
+            .map(|p| [p[0] + offset, p[1] + offset])
+            .collect();
+        let spline =
+            CatmullRom::new(shifted, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
+        assert_eq!(spline.grid().len(), 5, "offset {offset}");
+    }
+    // An explicitly repeated closing vertex is not doubled.
+    let mut closed = ring.to_vec();
+    closed.push(ring[0]);
+    let spline = CatmullRom::new(closed, None, Some(0.5), BoundaryCondition::Closed, None).unwrap();
+    assert_eq!(spline.grid().len(), 5);
+}

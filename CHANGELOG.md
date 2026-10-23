@@ -42,6 +42,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Non-contiguous NumPy arrays (for example `d[::2]`) are accepted everywhere.
 - Repeated consecutive vertices are dropped before fitting unless an explicit `grid` is
     given. They produced all-NaN output.
+- Closed curves decide whether the last vertex repeats the first with a tolerance
+    relative to the ring's extent. The old test scaled with the coordinate values, so
+    rings at projected-CRS magnitudes lost real vertices within tens of meters of the start.
 
 ## [0.4.1] - 2026-02-22
 
