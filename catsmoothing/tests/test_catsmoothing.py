@@ -313,6 +313,26 @@ def test_taubin_iterations() -> None:
         cs.smooth_linestrings(LINE, n_pts=10, gaussian_sigmas=1.0, taubin_iterations=2)
 
 
+@pytest.mark.parametrize("continuity", ["g2", "c2"])
+def test_continuity(continuity: Literal["g2", "c2"]) -> None:
+    verts = [(0, 0), (1, 2), (2, -1), (3, 1), (4, 0)]
+    s = CatmullRom(verts, alpha=0.5, continuity=continuity)
+    assert f"continuity='{continuity}'" in repr(s)
+    assert_close(s.evaluate(s.grid), np.asarray(verts, dtype=float), 1e-12)
+
+    def curvature(t: float) -> float:
+        (dx, dy), (ddx, ddy) = s.evaluate([t], 1)[0], s.evaluate([t], 2)[0]
+        return (dx * ddy - dy * ddx) / np.hypot(dx, dy) ** 3
+
+    eps = 1e-7
+    for g in s.grid[1:-1]:
+        assert abs(curvature(g - eps) - curvature(g + eps)) < 1e-4
+    smoothed = cs.smooth_linestrings(LINE, n_pts=20, continuity=continuity)
+    assert len(shapely.get_coordinates(smoothed)) == 20
+    with pytest.raises(ValueError, match="continuity"):
+        CatmullRom(verts, continuity="g3")  # pyright: ignore[reportArgumentType]
+
+
 def test_repeated_vertices() -> None:
     line = shapely.LineString([(0, 0), (1, 1), (1, 1), (2, 0)])
     result = cs.smooth_linestrings(line, n_pts=5)

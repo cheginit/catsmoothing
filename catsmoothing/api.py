@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     FloatArray = NDArray[np.float64]
     BCType = Literal["natural", "closed", "clamped"]
     SigmaUnits = Literal["vertices", "length"]
+    Continuity = Literal["c1", "g2", "c2"]
 
 __all__ = ["CatmullRom", "linestrings_tangent_angles", "smooth_linestrings", "smooth_polygon"]
 
@@ -80,6 +81,12 @@ class CatmullRom:
         applied to the vertices before fitting, by default None. Each iteration
         is one lambda step and one mu step; it damps vertex jitter while keeping
         the curve's overall size. Cannot be combined with a Gaussian sigma.
+    continuity : {"c1", "g2", "c2"}, optional
+        Smoothness where spline pieces join, by default ``"c1"`` (Catmull-Rom
+        tangent continuity). ``"g2"`` makes curvature continuous and follows the
+        ``"c1"`` shape closely; ``"c2"`` also makes the second derivative with
+        respect to ``grid`` continuous. Both split each piece into three cubic
+        pieces (Yuksel, SIGGRAPH 2026) and keep every vertex and its tangent.
 
     Examples
     --------
@@ -109,6 +116,7 @@ class CatmullRom:
         "grid",
         "sigma_units",
         "taubin_iterations",
+        "continuity",
     )
 
     def __init__(
@@ -121,6 +129,7 @@ class CatmullRom:
         *,
         sigma_units: SigmaUnits = "vertices",
         taubin_iterations: int | None = None,
+        continuity: Continuity = "c1",
     ) -> None:
         vertices = _to_array(vertices, "f8")
         grid = _to_array(grid, "f8") if grid is not None else None
@@ -129,6 +138,7 @@ class CatmullRom:
         self.bc_type = bc_type
         self.sigma_units = sigma_units
         self.taubin_iterations = taubin_iterations
+        self.continuity = continuity
         if self.bc_type not in ("natural", "closed", "clamped"):
             raise ValueError("`bc_type` must be 'natural', 'closed', 'clamped'.")
         self._spline = CatmullRomWrapper(
@@ -139,6 +149,7 @@ class CatmullRom:
             self.gaussian_sigma,
             sigma_units,
             taubin_iterations,
+            continuity,
         )
         self.grid = np.asarray(self._spline.grid)
         self._is_frozen = True
@@ -215,6 +226,8 @@ class CatmullRom:
                 parts.append(f"sigma_units='{self.sigma_units}'")
         if self.taubin_iterations is not None:
             parts.append(f"taubin_iterations={self.taubin_iterations}")
+        if self.continuity != "c1":
+            parts.append(f"continuity='{self.continuity}'")
         return f"CatmullRom({', '.join(parts)})"
 
 
@@ -230,6 +243,7 @@ def smooth_linestrings(
     max_iterations: int | None = None,
     sigma_units: SigmaUnits = "vertices",
     taubin_iterations: int | None = None,
+    continuity: Continuity = "c1",
 ) -> LineString: ...
 
 
@@ -245,6 +259,7 @@ def smooth_linestrings(
     max_iterations: int | None = None,
     sigma_units: SigmaUnits = "vertices",
     taubin_iterations: int | None = None,
+    continuity: Continuity = "c1",
 ) -> list[LineString]: ...
 
 
@@ -259,6 +274,7 @@ def smooth_linestrings(
     max_iterations: int | None = None,
     sigma_units: SigmaUnits = "vertices",
     taubin_iterations: int | None = None,
+    continuity: Continuity = "c1",
 ) -> LineString | list[LineString]:
     """Smooth LineStrings using Centripetal Catmull-Rom splines and uniform spacing.
 
@@ -297,6 +313,12 @@ def smooth_linestrings(
         applied to the vertices before fitting, by default None. Each iteration
         is one lambda step and one mu step; it damps vertex jitter while keeping
         the curve's overall size. Cannot be combined with a Gaussian sigma.
+    continuity : {"c1", "g2", "c2"}, optional
+        Smoothness where spline pieces join, by default ``"c1"`` (Catmull-Rom
+        tangent continuity). ``"g2"`` makes curvature continuous and follows the
+        ``"c1"`` shape closely; ``"c2"`` also makes the second derivative with
+        respect to ``grid`` continuous. Both split each piece into three cubic
+        pieces (Yuksel, SIGGRAPH 2026) and keep every vertex and its tangent.
 
     Returns
     -------
@@ -321,6 +343,7 @@ def smooth_linestrings(
         bc_list,
         sigma_units,
         taubin_iterations,
+        continuity,
     )
 
     to_geometry = (
@@ -415,6 +438,7 @@ def _poly_smooth(
     gaussian_sigma: float | None = None,
     sigma_units: SigmaUnits = "vertices",
     taubin_iterations: int | None = None,
+    continuity: Continuity = "c1",
 ) -> Polygon:
     """Smooth a Polygon using Catmull-Rom splines."""
     exterior = smooth_linestrings(
@@ -425,6 +449,7 @@ def _poly_smooth(
         "closed",
         sigma_units=sigma_units,
         taubin_iterations=taubin_iterations,
+        continuity=continuity,
     )
     n_holes = shapely.get_num_interior_rings(polygon)
     if n_holes == 0:
@@ -437,6 +462,7 @@ def _poly_smooth(
         ["closed"] * n_holes,  # pyright: ignore[reportArgumentType]
         sigma_units=sigma_units,
         taubin_iterations=taubin_iterations,
+        continuity=continuity,
     )
     poly = shapely.Polygon(exterior, [interiors] if n_holes == 1 else interiors)
     return shapely.make_valid(poly)  # pyright: ignore[reportReturnType]
@@ -452,6 +478,7 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     max_iterations: int | None = None,
     sigma_units: SigmaUnits = "vertices",
     taubin_iterations: int | None = None,
+    continuity: Continuity = "c1",
 ) -> PolygonType:
     """Smooth a (Multi)Polygon using Centripetal Catmull-Rom splines with uniform spacing.
 
@@ -483,6 +510,12 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
         applied to the vertices before fitting, by default None. Each iteration
         is one lambda step and one mu step; it damps vertex jitter while keeping
         the curve's overall size. Cannot be combined with a Gaussian sigma.
+    continuity : {"c1", "g2", "c2"}, optional
+        Smoothness where spline pieces join, by default ``"c1"`` (Catmull-Rom
+        tangent continuity). ``"g2"`` makes curvature continuous and follows the
+        ``"c1"`` shape closely; ``"c2"`` also makes the second derivative with
+        respect to ``grid`` continuous. Both split each piece into three cubic
+        pieces (Yuksel, SIGGRAPH 2026) and keep every vertex and its tangent.
 
     Returns
     -------
@@ -495,12 +528,14 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     _warn_ignored(tolerance, max_iterations)
     if isinstance(polygon, shapely.Polygon):
         return _poly_smooth(
-            polygon, distance, n_pts, gaussian_sigma, sigma_units, taubin_iterations
+            polygon, distance, n_pts, gaussian_sigma, sigma_units, taubin_iterations, continuity
         )
 
     return shapely.MultiPolygon(
         [
-            _poly_smooth(poly, distance, n_pts, gaussian_sigma, sigma_units, taubin_iterations)
+            _poly_smooth(
+                poly, distance, n_pts, gaussian_sigma, sigma_units, taubin_iterations, continuity
+            )
             for poly in polygon.geoms
         ]
     )

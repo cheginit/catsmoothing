@@ -23,6 +23,7 @@ class CatmullRom:
         gaussian_sigma: float | None = None,
         sigma_units: Literal["vertices", "length"] = "vertices",
         taubin_iterations: int | None = None,
+        continuity: Literal["c1", "g2", "c2"] = "c1",
     ) -> None: ...
     def evaluate(self, distances: FloatArray, n: Literal[0, 1, 2] = 0) -> FloatArray: ...
     def uniform_distances(self, n_pts: int) -> FloatArray: ...
@@ -42,4 +43,5 @@ def smooth_linestrings(
     bc_types: list[str] | None = None,
     sigma_units: Literal["vertices", "length"] = "vertices",
     taubin_iterations: int | None = None,
+    continuity: Literal["c1", "g2", "c2"] = "c1",
 ) -> list[FloatArray]: ...
