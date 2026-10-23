@@ -339,6 +339,14 @@ impl CatmullRom {
             }
             None => vertices_vec,
         };
+        // Strong smoothing can merge neighboring vertices, which a generated grid cannot hold.
+        let mut vertices_vec = vertices_vec;
+        if alpha.is_some() || grid.is_none() {
+            vertices_vec.dedup();
+            if vertices_vec.len() < 2 {
+                return Err(SplineError::TooFewVertices);
+            }
+        }
 
         let grid = Self::get_grid(grid, alpha, &vertices_vec)?;
         let tangents = Self::get_tangents(&vertices_vec, &grid, bc_type);

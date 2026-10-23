@@ -341,6 +341,18 @@ def test_smoothed_rings_close_exactly() -> None:
     assert len(cs.smooth_polygon(shapely.Polygon(ring), n_pts=40).exterior.coords) == 40
 
 
+@pytest.mark.parametrize("units", ["vertices", "length"])
+def test_huge_sigma_is_bounded(units: Literal["vertices", "length"]) -> None:
+    # A Gaussian wider than the line flattens it to its chord, and a ring to a point.
+    line = shapely.LineString([(0, 0), (1, 2), (3, 1), (4, 4)])
+    flat = cs.smooth_linestrings(line, n_pts=9, gaussian_sigmas=1e9, sigma_units=units)
+    coords = shapely.get_coordinates(flat)
+    assert_close(coords[:, 0], coords[:, 1], 1e-9)
+    ring = shapely.LinearRing([(0, 0), (1, 0), (1, 1), (0, 1)])
+    with pytest.raises(ValueError, match="two vertices"):
+        cs.smooth_linestrings(ring, n_pts=9, gaussian_sigmas=1e9, sigma_units=units, bc_types="closed")
+
+
 def test_repeated_vertices() -> None:
     line = shapely.LineString([(0, 0), (1, 1), (1, 1), (2, 0)])
     result = cs.smooth_linestrings(line, n_pts=5)
