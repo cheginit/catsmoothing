@@ -73,10 +73,8 @@ pub fn smooth_linestring(
     )?;
     let n_pts = match (n_pts, distance) {
         (Some(n_pts), _) => n_pts,
-        (None, Some(distance)) => {
-            let total_length = spline.grid()[spline.grid().len() - 1];
-            (total_length / distance).ceil() as usize
-        }
+        // Even spacing no wider than `distance`: ceil(L / d) intervals, one more point.
+        (None, Some(distance)) => ((spline.length() / distance).ceil() as usize).saturating_add(1),
         (None, None) => unreachable!("checked above"),
     };
     let distances = spline.uniform_distances(n_pts)?;

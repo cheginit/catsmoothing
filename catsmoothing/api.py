@@ -225,8 +225,9 @@ def smooth_linestrings(
     lines : list of shapely.LineString
         LineStrings to be smoothed.
     distances : list of float, optional
-        Distance between two consecutive points, by default None. You must
-        specify either ``distances`` or ``n_pts``.
+        Largest distance between consecutive points along the curve, by default
+        None. Points are spaced evenly at the widest spacing that does not exceed
+        it. You must specify either ``distances`` or ``n_pts``.
     n_pts : list of int, optional
         Number of points to be generated, by default None. You must specify
         either ``distances`` or ``n_pts``.
@@ -368,8 +369,9 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     polygon : shapely.Polygon or shapely.MultiPolygon
         (Multi)Polygon to be smoothed.
     distance : float, optional
-        Distance between two consecutive points, by default None. You must
-        specify either ``distance`` or ``n_pts``.
+        Largest distance between consecutive points along the curve, by default
+        None. Points are spaced evenly at the widest spacing that does not exceed
+        it. You must specify either ``distance`` or ``n_pts``.
     n_pts : int, optional
         Number of points to be generated, by default None. You must specify
         either ``distance`` or ``n_pts``.

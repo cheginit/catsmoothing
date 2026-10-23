@@ -34,6 +34,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `distances` (and `distance` in `smooth_polygon`) are in the coordinates' length units.
+    They were compared against the centripetal parameter (a sum of square roots of chord
+    lengths) and counted intervals as points, so `distances=10` on a 100-unit line
+    returned 2 points. Points are now spaced evenly, no wider than the given distance.
 - Open two-vertex lines no longer fail with "Internal error in tangent calculation";
     they produce a straight segment.
 - `CatmullRom.evaluate` with `n=1` or `n=2` now returns derivatives with respect to the
