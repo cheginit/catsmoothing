@@ -113,6 +113,7 @@ impl CatmullRom {
     /// `0` uniform, `1` chordal) and takes precedence over `grid`; with neither, the grid is
     /// `0, 1, 2, ...`. `gaussian_sigma` smooths the vertices first, keeping the end vertices.
     /// Closed curves append the first vertex unless the last vertex already matches it.
+    /// Without an explicit `grid`, repeated consecutive vertices are dropped.
     ///
     /// # Errors
     ///
@@ -136,6 +137,15 @@ impl CatmullRom {
         }
         if gaussian_sigma.is_some_and(|s| !(s.is_finite() && s >= 0.0)) {
             return Err(SplineError::InvalidGaussianSigma);
+        }
+
+        // Repeated vertices would give zero grid steps; an explicit grid keeps them.
+        let mut vertices = vertices;
+        if grid.is_none() {
+            vertices.dedup();
+            if vertices.len() < 2 {
+                return Err(SplineError::TooFewVertices);
+            }
         }
 
         let vertices = if bc_type == BoundaryCondition::Closed {

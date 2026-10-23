@@ -601,3 +601,27 @@ fn test_gaussian_smoothing_kernel_wider_than_line() {
     }
     assert_close(&middle, &[x / total, y / total], 1e-12);
 }
+
+#[test]
+fn test_repeated_vertices_are_dropped() {
+    let with_repeats = vec![[0.0, 0.0], [1.0, 1.0], [1.0, 1.0], [2.0, 0.0], [2.0, 0.0]];
+    let unique = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
+    let a = CatmullRom::new(
+        with_repeats,
+        None,
+        Some(0.5),
+        BoundaryCondition::Clamped,
+        None,
+    )
+    .unwrap();
+    let b = CatmullRom::new(unique, None, Some(0.5), BoundaryCondition::Clamped, None).unwrap();
+    assert_eq!(a.grid(), b.grid());
+    let d: Vec<f64> = (0..11).map(|i| b.grid()[2] * i as f64 / 10.0).collect();
+    assert_eq!(a.evaluate(&d, 0).unwrap(), b.evaluate(&d, 0).unwrap());
+
+    let all_same = vec![[1.0, 1.0]; 3];
+    assert_eq!(
+        CatmullRom::new(all_same, None, Some(0.5), BoundaryCondition::Natural, None).unwrap_err(),
+        SplineError::TooFewVertices
+    );
+}
