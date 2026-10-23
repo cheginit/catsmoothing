@@ -29,9 +29,11 @@ You can try CatSmoothing directly in your browser by clicking the Binder badge a
 - Written in Rust for performance and runs in parallel using Rayon
 - Creating splines from 2D vertices of a line that allows computing n-th derivatives
 - Smoothing geometries with Centripetal Catmull-Rom splines with **uniform spacing**
-    (spacing is determined iteratively based on the arc length of the input geometry)
+    (points are spaced by equal arc length, computed with Gauss-Legendre quadrature)
 - Computing tangent vectors at each vertex of a line
-- Optional Gaussian filtering to reduce noise in input geometries before smoothing
+- Optional vertex pre-smoothing to reduce noise before fitting: a Gaussian filter with
+    sigma in vertices or in length along the line, or shrinkage-free Taubin smoothing
+- Optional curvature continuity (G2 or C2) through continuity-enhancing splits
 
 ## Installation
 
@@ -53,8 +55,8 @@ micromamba install -c conda-forge catsmoothing
 
 CatSmoothing provide one class called `CatmullRom` that is general purpose, Catmull-Rom
 spline interpolation class. You can tweak the `alpha` parameter of the class to
-interpolate with different versions of the Catmull-Rom spline from 2D vertices of a
-line and compute n-th derivatives. For smoothing geometries, CatSmoothing uses the
+interpolate with different versions of the Catmull-Rom spline from 2D vertices of a line
+and compute n-th derivatives. For smoothing geometries, CatSmoothing uses the
 centripetal Catmull-Rom spline algorithm, i.e., `alpha=0.5`. There are two functions
 that can be used for smoothing geometries: `smooth_linestrings` and `smooth_polygon`.
 There is also a function for computing tangent angles (in radians) at each vertex of a
@@ -117,6 +119,23 @@ tangents = cs.linestrings_tangent_angles(line_smoothed)
 ```
 
 ![Tangent Angles](https://raw.githubusercontent.com/cheginit/catsmoothing/main/docs/examples/images/tangents.png)
+
+### Pre-smoothing and continuity options
+
+The smoothing functions and `CatmullRom` accept keyword-only options:
+
+- `sigma_units="length"` measures the Gaussian sigma in coordinate units along the line,
+    so unevenly spaced vertices are smoothed evenly.
+- `taubin_iterations=n` applies Taubin smoothing, which damps jitter while keeping a
+    curve's size (Gaussian smoothing shrinks closed rings).
+- `continuity="g2"` makes curvature continuous, and `continuity="c2"` also makes the
+    second derivative continuous; vertices and their tangents are unchanged.
+
+```python
+line_smoothed = cs.smooth_linestrings(
+    line, distances=0.1, gaussian_sigmas=0.3, sigma_units="length", continuity="g2"
+)
+```
 
 For more examples, visit the [documentation](https://catsmoothing.readthedocs.io).
 
