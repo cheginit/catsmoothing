@@ -1,7 +1,7 @@
 use crate::continuity;
 use crate::error::SplineError;
 use crate::presmooth;
-use crate::utils::ends_coincide;
+use crate::utils;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::ops::{Add, Mul, Sub};
 use std::str::FromStr;
@@ -313,7 +313,7 @@ impl CatmullRom {
 
         let vertices = if bc_type == BoundaryCondition::Closed {
             let mut v = vertices;
-            if ends_coincide(&v) {
+            if utils::ends_coincide(&v) {
                 v.pop();
             }
             if let Some(first) = v.first().copied() {
