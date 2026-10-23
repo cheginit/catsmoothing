@@ -249,6 +249,28 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
 - **Why:** A moved tag cannot change the code that runs with release permissions, and no
     later step can push with the checkout's token.
 
+### D-24: Documentation site on zensical and GitHub Pages
+
+- **Status:** accepted (2026-10-23).
+- **Decision:** The site builds with zensical from `zensical.toml` in the pixi `docs`
+    environment, which installs no CatSmoothing build: mkdocstrings reads the sources.
+    `pixi r docs` converts the example notebooks to Markdown pages without running them
+    and runs a strict build. `.github/workflows/docs.yml` runs it on every PR and
+    deploys `main` to GitHub Pages at <https://cheginit.github.io/catsmoothing/>. The
+    home, changelog, contributing, and license pages include `README.md`,
+    `CHANGELOG.md`, `AGENTS.md`, and `LICENSE`, and `zensical.toml` has no `nav` key, so
+    the nav mirrors `docs/`.
+- **Why:** It matches water-ogcapi (Q-01). Each page has one source, and the strict
+    build fails on a missing snippet or a broken internal link. A page missing from an
+    explicit nav still builds without a warning, so an explicit nav would hide a new
+    notebook.
+- **Rejected:** mkdocs with mkdocs-jupyter on Read the Docs, which compiled the Rust
+    extension for every docs build.
+- **Limits:** zensical was at 0.0.72 when adopted, so its config keys may change. The
+    strict build does not catch a relative link in an included file. Pages deploys only
+    once the repository's Pages source is GitHub Actions, and the Read the Docs project
+    has to be retired by hand.
+
 ## Lessons
 
 ### L-01: A probe of the released wheel can import the checkout
@@ -281,6 +303,6 @@ variable from a later cell pulls that statement up. **Check:** ssort excludes
 
 ### Q-01: Move the docs to zensical and GitHub Pages
 
-- **Status:** open; planned as its own pull request.
-- water-ogcapi builds with zensical and deploys to GitHub Pages. CatSmoothing builds
-    with mkdocs and mkdocs-jupyter on Read the Docs.
+- **Status:** answered by D-24.
+- water-ogcapi builds with zensical and deploys to GitHub Pages. CatSmoothing built with
+    mkdocs and mkdocs-jupyter on Read the Docs.
