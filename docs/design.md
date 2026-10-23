@@ -237,6 +237,15 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
 - **Decision:** A GitHub ruleset blocks direct pushes, force pushes, and deletion of
     `main`, and requires the CI jobs named in `AGENTS.md` to pass before a merge.
 
+### D-23: Actions are pinned to commit SHAs
+
+- **Status:** accepted (2026-10-23).
+- **Decision:** Every `uses:` in `.github/workflows/` names a full commit SHA with its
+    version in a comment, which Dependabot updates, and every checkout sets
+    `persist-credentials: false`.
+- **Why:** A moved tag cannot change the code that runs with release permissions, and no
+    later step can push with the checkout's token.
+
 ## Lessons
 
 ### L-01: A probe of the released wheel can import the checkout

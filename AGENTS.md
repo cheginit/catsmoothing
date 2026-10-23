@@ -119,8 +119,9 @@ typecheck, lint, and audit jobs; `release.yml` builds the wheels on every PR; an
     strict build does not catch it.
 - `release.yml` comes from `maturin generate-ci github`. After regenerating it, restore
     the `test` and `release-notes` jobs, `release-notes` in the release job's `needs`,
-    pushes to `main` only, trusted publishing without a token, and the `interpreter`
-    entries of the 32-bit Linux targets.
+    pushes to `main` only, trusted publishing without a token, the `interpreter` entries
+    of the 32-bit Linux targets, the commit-SHA pins, and `persist-credentials: false`
+    on each checkout (D-23).
 - The version lives in `pyproject.toml` and `Cargo.toml`; bump both in the release PR.
 - Skills live in `.agents/skills/`. `.claude/skills` is a symlink to it for Claude Code,
     and `.claude/rules/rust-style.md` points Claude Code to the Rust skill when it opens

@@ -27,7 +27,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
       if: startsWith(github.ref, 'refs/tags/')
       with:
         fetch-depth: 0
@@ -51,7 +51,7 @@ jobs:
           echo "prerelease=false" >> "$GITHUB_OUTPUT"
           echo "cliff=true" >> "$GITHUB_OUTPUT"
         fi
-    - uses: orhun/git-cliff-action@v4
+    - uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff  # v4.9.1
       if: startsWith(github.ref, 'refs/tags/') && steps.kind.outputs.cliff == 'true'
       with:
         version: v2.14.2  # same as the dev environment's git-cliff
@@ -92,19 +92,21 @@ jobs:
         - runner: ubuntu-22.04
           target: ppc64le
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
       with:
         python-version: '3.13'
     - name: Build wheels
-      uses: PyO3/maturin-action@v1
+      uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
       with:
         target: ${{ matrix.platform.target }}
         args: --release --out dist ${{ matrix.platform.interpreter && format('-i {0}', matrix.platform.interpreter) || '--find-interpreter' }}
         sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
         manylinux: auto
     - name: Upload wheels
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
       with:
         name: wheels-linux-${{ matrix.platform.target }}
         path: dist
@@ -125,19 +127,21 @@ jobs:
           target: armv7
           interpreter: python3.13 python3.14
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
       with:
         python-version: '3.13'
     - name: Build wheels
-      uses: PyO3/maturin-action@v1
+      uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
       with:
         target: ${{ matrix.platform.target }}
         args: --release --out dist ${{ matrix.platform.interpreter && format('-i {0}', matrix.platform.interpreter) || '--find-interpreter' }}
         sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
         manylinux: musllinux_1_2
     - name: Upload wheels
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
       with:
         name: wheels-musllinux-${{ matrix.platform.target }}
         path: dist
@@ -157,19 +161,21 @@ jobs:
           target: aarch64
           python_arch: arm64
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
       with:
         python-version: '3.13'
         architecture: ${{ matrix.platform.python_arch }}
     - name: Build wheels
-      uses: PyO3/maturin-action@v1
+      uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
       with:
         target: ${{ matrix.platform.target }}
         args: --release --out dist --find-interpreter
         sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
     - name: Upload wheels
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
       with:
         name: wheels-windows-${{ matrix.platform.target }}
         path: dist
@@ -184,18 +190,20 @@ jobs:
         - runner: macos-latest
           target: aarch64
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
       with:
         python-version: '3.13'
     - name: Build wheels
-      uses: PyO3/maturin-action@v1
+      uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
       with:
         target: ${{ matrix.platform.target }}
         args: --release --out dist --find-interpreter
         sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
     - name: Upload wheels
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
       with:
         name: wheels-macos-${{ matrix.platform.target }}
         path: dist
@@ -203,14 +211,16 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+      with:
+        persist-credentials: false
     - name: Build sdist
-      uses: PyO3/maturin-action@v1
+      uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
       with:
         command: sdist
         args: --out dist
     - name: Upload sdist
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
       with:
         name: wheels-sdist
         path: dist
@@ -228,14 +238,14 @@ jobs:
       # Used to generate artifact attestation
       attestations: write
     steps:
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
     - name: Generate artifact attestation
-      uses: actions/attest@v4
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6  # v4.2.2
       with:
         subject-path: wheels-*/*
     - name: Install uv
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7.6.0
     - name: Publish to PyPI
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       run: uv publish 'wheels-*/*'
