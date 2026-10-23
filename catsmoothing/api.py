@@ -422,15 +422,14 @@ def linestrings_tangent_angles(
     if np.any(~np.isin(shapely.get_type_id(lines), [1, 2])):
         raise TypeError("`lines` must be a list shapely.LineString")
 
-    sigma_list: list[float] | None = None
-    if gaussian_sigmas is not None:
-        if isinstance(gaussian_sigmas, (int, float)):
-            sigma_list = [float(gaussian_sigmas)]
-        else:
-            sigma_list = [float(s) for s in gaussian_sigmas]
-
     coords, offsets = _stack(lines)  # pyright: ignore[reportArgumentType]
-    flat, counts = _tangent_angles_rs(coords, offsets, sigma_list, sigma_units, taubin_iterations)
+    flat, counts = _tangent_angles_rs(
+        coords,
+        offsets,
+        _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
+        sigma_units,
+        taubin_iterations,
+    )
     angles = np.split(flat, np.cumsum(counts)[:-1])
     if len(angles) == 1:
         return angles[0]
