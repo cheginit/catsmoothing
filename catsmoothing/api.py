@@ -175,6 +175,7 @@ def smooth_linestrings(
     n_pts: int | None = None,
     gaussian_sigmas: float | None = None,
     bc_types: BCType | None = None,
+    *,
     tolerance: float = 1e-6,
     max_iterations: int = 100,
 ) -> LineString: ...
@@ -187,6 +188,7 @@ def smooth_linestrings(
     n_pts: list[int] | None = None,
     gaussian_sigmas: list[float] | None = None,
     bc_types: list[BCType] | None = None,
+    *,
     tolerance: float = 1e-6,
     max_iterations: int = 100,
 ) -> list[LineString]: ...
@@ -198,6 +200,7 @@ def smooth_linestrings(
     n_pts: int | list[int] | None = None,
     gaussian_sigmas: float | list[float] | None = None,
     bc_types: BCType | list[BCType] | None = None,
+    *,
     tolerance: float = 1e-6,
     max_iterations: int = 100,
 ) -> LineString | list[LineString]:
@@ -319,12 +322,19 @@ def _poly_smooth(
     distance: float | None = None,
     n_pts: int | None = None,
     gaussian_sigma: float | None = None,
+    *,
     tolerance: float = 1e-6,
     max_iterations: int = 100,
 ) -> Polygon:
     """Smooth a Polygon using Catmull-Rom splines."""
     exterior = smooth_linestrings(
-        polygon.exterior, distance, n_pts, gaussian_sigma, "closed", tolerance, max_iterations
+        polygon.exterior,
+        distance,
+        n_pts,
+        gaussian_sigma,
+        "closed",
+        tolerance=tolerance,
+        max_iterations=max_iterations,
     )
     n_holes = shapely.get_num_interior_rings(polygon)
     if n_holes == 0:
@@ -335,8 +345,8 @@ def _poly_smooth(
         [n_pts] * n_holes if n_pts is not None else None,
         [gaussian_sigma] * n_holes if gaussian_sigma is not None else None,
         ["closed"] * n_holes,  # pyright: ignore[reportArgumentType]
-        tolerance,
-        max_iterations,
+        tolerance=tolerance,
+        max_iterations=max_iterations,
     )
     poly = shapely.Polygon(exterior, [interiors] if n_holes == 1 else interiors)
     return shapely.make_valid(poly)  # pyright: ignore[reportReturnType]
@@ -347,6 +357,7 @@ def smooth_polygon(
     distance: float | None = None,
     n_pts: int | None = None,
     gaussian_sigma: float | None = None,
+    *,
     tolerance: float = 1e-6,
     max_iterations: int = 100,
 ) -> PolygonType:
@@ -379,11 +390,25 @@ def smooth_polygon(
         raise TypeError("`polygon` must be a shapely.Polygon or shapely.MultiPolygon")
 
     if isinstance(polygon, shapely.Polygon):
-        return _poly_smooth(polygon, distance, n_pts, gaussian_sigma, tolerance, max_iterations)
+        return _poly_smooth(
+            polygon,
+            distance,
+            n_pts,
+            gaussian_sigma,
+            tolerance=tolerance,
+            max_iterations=max_iterations,
+        )
 
     return shapely.MultiPolygon(
         [
-            _poly_smooth(poly, distance, n_pts, gaussian_sigma, tolerance, max_iterations)
+            _poly_smooth(
+                poly,
+                distance,
+                n_pts,
+                gaussian_sigma,
+                tolerance=tolerance,
+                max_iterations=max_iterations,
+            )
             for poly in polygon.geoms
         ]
     )
