@@ -156,7 +156,9 @@ impl Segment {
     fn arc_pieces(&self, t0: f64, t1: f64, whole: f64, depth: u32, out: &mut Vec<[f64; 3]>) {
         let mid = 0.5 * (t0 + t1);
         let (left, right) = (self.length_between(t0, mid), self.length_between(mid, t1));
-        if depth == 0 || (left + right - whole).abs() <= 1e-6 * (left + right) {
+        // Overflowing lengths (coordinates near 1e155) never converge, so they stop here.
+        let converged = (left + right - whole).abs() <= 1e-6 * (left + right);
+        if depth == 0 || converged || !(left + right).is_finite() {
             out.extend([[t0, mid, left], [mid, t1, right]]);
         } else {
             self.arc_pieces(t0, mid, left, depth - 1, out);
@@ -567,7 +569,8 @@ impl CatmullRom {
         [p.x, p.y]
     }
 
-    /// Total arc length of the curve.
+    /// Total arc length of the curve; not finite when coordinates are large enough for squared
+    /// speeds to overflow.
     pub fn length(&self) -> f64 {
         self.arc_table().iter().map(|piece| piece.length).sum()
     }
@@ -594,7 +597,7 @@ impl CatmullRom {
     ///
     /// # Errors
     ///
-    /// Fails when the output cannot be allocated.
+    /// Fails when the curve length is not finite or the output cannot be allocated.
     pub fn uniform_distances(&self, n_pts: usize) -> Result<Vec<f64>, SplineError> {
         if n_pts < 2 {
             return Ok(vec![self.grid[0]]);
@@ -606,6 +609,9 @@ impl CatmullRom {
 
         let table = self.arc_table();
         let total: f64 = table.iter().map(|piece| piece.length).sum();
+        if !total.is_finite() {
+            return Err(SplineError::NonFiniteLength);
+        }
         // Targets increase, so one forward sweep finds every target's piece.
         let (mut idx, mut start) = (0, 0.0);
         for k in 0..n_pts {
