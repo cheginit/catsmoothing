@@ -259,6 +259,13 @@ def test_invalid_inputs_raise_value_error(call) -> None:
         call()
 
 
+def test_repeated_vertices() -> None:
+    line = shapely.LineString([(0, 0), (1, 1), (1, 1), (2, 0)])
+    result = cs.smooth_linestrings(line, n_pts=5)
+    expected = cs.smooth_linestrings(shapely.LineString([(0, 0), (1, 1), (2, 0)]), n_pts=5)
+    assert result.equals_exact(expected, 0)
+
+
 def test_non_contiguous_arrays() -> None:
     s = CatmullRom([(0, 0), (1, 1), (2, 0), (3, 1)], alpha=0.5)
     d = np.linspace(0, s.grid[-1], 10)

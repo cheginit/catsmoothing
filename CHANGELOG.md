@@ -40,6 +40,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     exactly two columns, nonfinite vertices, `alpha` or `gaussian_sigma`, explicit grids
     that are not strictly increasing, and a nonpositive `tolerance`.
 - Non-contiguous NumPy arrays (for example `d[::2]`) are accepted everywhere.
+- Repeated consecutive vertices are dropped before fitting unless an explicit `grid` is
+    given. They produced all-NaN output.
 
 ## [0.4.1] - 2026-02-22
 
