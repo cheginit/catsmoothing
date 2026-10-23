@@ -1,5 +1,9 @@
 // Binding signatures mirror the Python API's keyword arguments.
 #![allow(clippy::too_many_arguments)]
+#![allow(
+    clippy::needless_pass_by_value,
+    reason = "PyO3 extracts arguments by value, and ndarray views are cheap handles"
+)]
 
 use crate::{
     linestring, BoundaryCondition, CatmullRom, Continuity, LineToSmooth, Presmoothing, SigmaUnits,

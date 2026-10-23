@@ -389,6 +389,7 @@ impl CatmullRom {
     }
 
     /// Parameter value at each vertex.
+    #[must_use]
     pub fn grid(&self) -> &[f64] {
         &self.grid
     }
@@ -571,6 +572,7 @@ impl CatmullRom {
 
     /// Total arc length of the curve; not finite when coordinates are large enough for squared
     /// speeds to overflow.
+    #[must_use]
     pub fn length(&self) -> f64 {
         self.arc_table().iter().map(|piece| piece.length).sum()
     }
