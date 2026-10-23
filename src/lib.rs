@@ -3,6 +3,7 @@
 
 mod error;
 mod linestring;
+mod presmooth;
 #[cfg(feature = "python")]
 mod python;
 mod splines;

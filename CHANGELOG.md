@@ -26,6 +26,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     spline is about 6x faster, and smoothing 2000 lines of 100 vertices about 2x faster.
 - The Python bindings release the GIL while Rust computes, and
     `linestrings_tangent_angles` processes lines in parallel like `smooth_linestrings`.
+- Gaussian pre-smoothing extends open lines by point reflection through their end
+    vertices, so evenly spaced straight runs stay in place; the old mirror reflection
+    shifted vertices near the ends along the line. Closed rings wrap around, so the
+    seam vertex is smoothed like every other vertex instead of staying pinned.
 - `CatmullRom` documents and enforces 2D vertices: arrays without exactly two columns
     raise `ValueError`. A third column used to be dropped silently.
 
