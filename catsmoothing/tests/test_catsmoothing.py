@@ -333,6 +333,14 @@ def test_continuity(continuity: Literal["g2", "c2"]) -> None:
         CatmullRom(verts, continuity="g3")  # pyright: ignore[reportArgumentType]
 
 
+def test_smoothed_rings_close_exactly() -> None:
+    angles = np.linspace(0, 2 * np.pi, 50, endpoint=False)
+    ring = shapely.LinearRing(np.c_[1e5 + 10 * np.cos(angles), 4e6 + 13 * np.sin(angles)])
+    for bc in ("clamped", "closed"):
+        assert len(shapely.get_coordinates(cs.smooth_linestrings(ring, n_pts=40, bc_types=bc))) == 40
+    assert len(cs.smooth_polygon(shapely.Polygon(ring), n_pts=40).exterior.coords) == 40
+
+
 def test_repeated_vertices() -> None:
     line = shapely.LineString([(0, 0), (1, 1), (1, 1), (2, 0)])
     result = cs.smooth_linestrings(line, n_pts=5)
