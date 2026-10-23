@@ -251,11 +251,23 @@ LINE = shapely.LineString([(0, 0), (1, 1), (2, 0), (3, 1)])
         lambda: CatmullRom([(0, 0), (1, 1), (2, 0)], grid=[0, 0, 1]),
         lambda: CatmullRom([(0, 0), (1, 1), (2, 0)], grid=[0, 2, 1]),
         lambda: CatmullRom([(0, 0), (1, 1), (2, 0)], alpha=np.inf),
-        lambda: CatmullRom([(0, 0), (1, 1), (2, 0)]).uniform_distances(5, tolerance=0),
     ],
 )
 def test_invalid_inputs_raise_value_error(call) -> None:
     with pytest.raises(ValueError):  # noqa: PT011
+        call()
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: cs.smooth_linestrings(LINE, n_pts=10, tolerance=1e-3),
+        lambda: cs.smooth_polygon(shapely.Polygon([(0, 0), (1, 0), (1, 1)]), n_pts=10, max_iterations=5),
+        lambda: CatmullRom([(0, 0), (1, 1), (2, 0)]).uniform_distances(5, tolerance=1e-3),
+    ],
+)
+def test_iteration_controls_are_deprecated(call) -> None:
+    with pytest.deprecated_call():
         call()
 
 

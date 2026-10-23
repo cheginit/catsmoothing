@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, overload
 
+import warnings
+
 import numpy as np
 import shapely
 
@@ -33,6 +35,17 @@ def _to_array(arr: Any, dtype: Literal["i8"]) -> NDArray[np.int64]: ...
 def _to_array(arr: Any, dtype: Literal["f8", "i8"]) -> NDArray[np.float64] | NDArray[np.int64]:
     """Convert input to numpy array with specified dtype."""
     return np.asarray(np.atleast_1d(arr), dtype=dtype)
+
+
+def _warn_ignored(tolerance: float | None, max_iterations: int | None) -> None:
+    """Warn that the iteration controls of the old spacing algorithm are ignored."""
+    if tolerance is not None or max_iterations is not None:
+        warnings.warn(
+            "`tolerance` and `max_iterations` are ignored because points are spaced by arc "
+            "length directly; they will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
 
 
 class CatmullRom:
@@ -120,25 +133,26 @@ class CatmullRom:
         return np.asarray(results)
 
     def uniform_distances(
-        self, n_pts: int, tolerance: float = 1e-6, max_iterations: int = 100
+        self, n_pts: int, tolerance: float | None = None, max_iterations: int | None = None
     ) -> FloatArray:
-        """Get uniformly spaced parameter values.
+        """Get parameter values whose points are evenly spaced by arc length.
 
         Parameters
         ----------
         n_pts : int
-            Number of points to generate.
+            Number of points to generate, including both ends of the curve.
         tolerance : float, optional
-            Tolerance for uniform spacing, by default 1e-6.
+            Deprecated and ignored: points are spaced by arc length directly.
         max_iterations : int, optional
-            Maximum number of iterations for uniform spacing, by default 100.
+            Deprecated and ignored: points are spaced by arc length directly.
 
         Returns
         -------
         array_like
-            Uniformly spaced parameter values.
+            Parameter values of evenly spaced points.
         """
-        results = self._spline.uniform_distances(n_pts, tolerance, max_iterations)
+        _warn_ignored(tolerance, max_iterations)
+        results = self._spline.uniform_distances(n_pts)
         return np.asarray(results)
 
     def __setattr__(self, key: str, value: Any):
@@ -176,8 +190,8 @@ def smooth_linestrings(
     gaussian_sigmas: float | None = None,
     bc_types: BCType | None = None,
     *,
-    tolerance: float = 1e-6,
-    max_iterations: int = 100,
+    tolerance: float | None = None,
+    max_iterations: int | None = None,
 ) -> LineString: ...
 
 
@@ -189,8 +203,8 @@ def smooth_linestrings(
     gaussian_sigmas: list[float] | None = None,
     bc_types: list[BCType] | None = None,
     *,
-    tolerance: float = 1e-6,
-    max_iterations: int = 100,
+    tolerance: float | None = None,
+    max_iterations: int | None = None,
 ) -> list[LineString]: ...
 
 
@@ -201,8 +215,8 @@ def smooth_linestrings(
     gaussian_sigmas: float | list[float] | None = None,
     bc_types: BCType | list[BCType] | None = None,
     *,
-    tolerance: float = 1e-6,
-    max_iterations: int = 100,
+    tolerance: float | None = None,
+    max_iterations: int | None = None,
 ) -> LineString | list[LineString]:
     """Smooth LineStrings using Centripetal Catmull-Rom splines and uniform spacing.
 
@@ -226,15 +240,16 @@ def smooth_linestrings(
         endpoint tangents are set to ensure the spline passes through the
         start and end points without deviation.
     tolerance : float, optional
-        Tolerance for uniform spacing, by default 1e-6.
+        Deprecated and ignored: points are spaced by arc length directly.
     max_iterations : int, optional
-        Maximum number of iterations for uniform spacing, by default 100.
+        Deprecated and ignored: points are spaced by arc length directly.
 
     Returns
     -------
     shapely.LineString or numpy.ndarray of shapely.LineString
         Fitted CatmullRom curve as either a LineString.
     """
+    _warn_ignored(tolerance, max_iterations)
     lines = np.atleast_1d(lines)  # pyright: ignore[reportCallIssue,reportArgumentType]
     geo_types = shapely.get_type_id(lines)
     if not np.all(np.isin(geo_types, [1, 2])):
@@ -250,8 +265,6 @@ def smooth_linestrings(
         _to_array(n_pts, "i8") if n_pts is not None else None,
         _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
         bc_list,
-        tolerance,
-        max_iterations,
     )
 
     to_geometry = (
@@ -322,20 +335,9 @@ def _poly_smooth(
     distance: float | None = None,
     n_pts: int | None = None,
     gaussian_sigma: float | None = None,
-    *,
-    tolerance: float = 1e-6,
-    max_iterations: int = 100,
 ) -> Polygon:
     """Smooth a Polygon using Catmull-Rom splines."""
-    exterior = smooth_linestrings(
-        polygon.exterior,
-        distance,
-        n_pts,
-        gaussian_sigma,
-        "closed",
-        tolerance=tolerance,
-        max_iterations=max_iterations,
-    )
+    exterior = smooth_linestrings(polygon.exterior, distance, n_pts, gaussian_sigma, "closed")
     n_holes = shapely.get_num_interior_rings(polygon)
     if n_holes == 0:
         return shapely.Polygon(exterior)
@@ -345,8 +347,6 @@ def _poly_smooth(
         [n_pts] * n_holes if n_pts is not None else None,
         [gaussian_sigma] * n_holes if gaussian_sigma is not None else None,
         ["closed"] * n_holes,  # pyright: ignore[reportArgumentType]
-        tolerance=tolerance,
-        max_iterations=max_iterations,
     )
     poly = shapely.Polygon(exterior, [interiors] if n_holes == 1 else interiors)
     return shapely.make_valid(poly)  # pyright: ignore[reportReturnType]
@@ -358,8 +358,8 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     n_pts: int | None = None,
     gaussian_sigma: float | None = None,
     *,
-    tolerance: float = 1e-6,
-    max_iterations: int = 100,
+    tolerance: float | None = None,
+    max_iterations: int | None = None,
 ) -> PolygonType:
     """Smooth a (Multi)Polygon using Centripetal Catmull-Rom splines with uniform spacing.
 
@@ -377,9 +377,9 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
         Standard deviation for Gaussian kernel, by default ``None``,
         i.e., no smoothing.
     tolerance : float, optional
-        Tolerance for uniform spacing, by default 1e-6.
+        Deprecated and ignored: points are spaced by arc length directly.
     max_iterations : int, optional
-        Maximum number of iterations for uniform spacing, by default 100.
+        Deprecated and ignored: points are spaced by arc length directly.
 
     Returns
     -------
@@ -389,26 +389,13 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
     if shapely.get_type_id(polygon) not in (3, 6):
         raise TypeError("`polygon` must be a shapely.Polygon or shapely.MultiPolygon")
 
+    _warn_ignored(tolerance, max_iterations)
     if isinstance(polygon, shapely.Polygon):
-        return _poly_smooth(
-            polygon,
-            distance,
-            n_pts,
-            gaussian_sigma,
-            tolerance=tolerance,
-            max_iterations=max_iterations,
-        )
+        return _poly_smooth(polygon, distance, n_pts, gaussian_sigma)
 
     return shapely.MultiPolygon(
         [
-            _poly_smooth(
-                poly,
-                distance,
-                n_pts,
-                gaussian_sigma,
-                tolerance=tolerance,
-                max_iterations=max_iterations,
-            )
+            _poly_smooth(poly, distance, n_pts, gaussian_sigma)
             for poly in polygon.geoms
         ]
     )

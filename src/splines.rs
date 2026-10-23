@@ -1,5 +1,5 @@
 use crate::error::SplineError;
-use crate::utils::{ends_coincide, interpolate};
+use crate::utils::ends_coincide;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::ops::{Add, Mul, Sub};
 use std::str::FromStr;
@@ -97,6 +97,76 @@ struct Segment {
     b: Vec2D,
     c: Vec2D,
     d: Vec2D,
+}
+
+// Positive nodes and their weights of the 16-point Gauss-Legendre rule on [-1, 1]. Exact for
+// polynomials up to degree 31; about 1e-5 relative error on noisy centripetal segments.
+const GAUSS_LEGENDRE_NODES: [f64; 8] = [
+    0.095_012_509_837_637_44,
+    0.281_603_550_779_258_9,
+    0.458_016_777_657_227_4,
+    0.617_876_244_402_643_8,
+    0.755_404_408_355_003,
+    0.865_631_202_387_831_8,
+    0.944_575_023_073_232_6,
+    0.989_400_934_991_649_9,
+];
+const GAUSS_LEGENDRE_WEIGHTS: [f64; 8] = [
+    0.189_450_610_455_068_5,
+    0.182_603_415_044_923_6,
+    0.169_156_519_395_002_5,
+    0.149_595_988_816_576_7,
+    0.124_628_971_255_533_9,
+    0.095_158_511_682_492_8,
+    0.062_253_523_938_647_9,
+    0.027_152_459_411_754_1,
+];
+
+impl Segment {
+    fn velocity(&self, t: f64) -> Vec2D {
+        (self.a * (3.0 * t) + self.b * 2.0) * t + self.c
+    }
+
+    /// Arc length over `[0, t]`.
+    fn length_to(&self, t: f64) -> f64 {
+        let half = 0.5 * t;
+        let mut sum = 0.0;
+        for (x, w) in GAUSS_LEGENDRE_NODES.iter().zip(&GAUSS_LEGENDRE_WEIGHTS) {
+            let left = self.velocity(half * (1.0 - x)).norm();
+            let right = self.velocity(half * (1.0 + x)).norm();
+            sum += w * (left + right);
+        }
+        half * sum
+    }
+
+    /// Segment parameter where the arc length from the start reaches `target`, given the
+    /// segment's full `length`. Newton steps stay inside a shrinking bisection bracket, which
+    /// also covers points where the speed vanishes.
+    fn param_at_length(&self, target: f64, length: f64) -> f64 {
+        if length <= 0.0 {
+            return 0.0;
+        }
+        let (mut lo, mut hi) = (0.0, 1.0);
+        let mut t = target / length;
+        for _ in 0..64 {
+            let residual = self.length_to(t) - target;
+            if residual.abs() <= 1e-12 * length {
+                break;
+            }
+            if residual > 0.0 {
+                hi = t;
+            } else {
+                lo = t;
+            }
+            let newton = t - residual / self.velocity(t).norm();
+            t = if newton > lo && newton < hi {
+                newton
+            } else {
+                0.5 * (lo + hi)
+            };
+        }
+        t
+    }
 }
 
 /// A cubic Catmull-Rom spline through 2D vertices, one Hermite segment per vertex pair.
@@ -400,80 +470,63 @@ impl CatmullRom {
         [p.x, p.y]
     }
 
-    /// Returns `n_pts` grid parameters whose evaluated points are evenly spaced along the
-    /// curve, or the first grid value when `n_pts` is below 2.
+    /// Total arc length of the curve.
+    pub fn length(&self) -> f64 {
+        self.segments.iter().map(|s| s.length_to(1.0)).sum()
+    }
+
+    /// Returns `n_pts` grid parameters whose evaluated points are evenly spaced by arc length,
+    /// starting and ending at the grid ends, or the first grid value when `n_pts` is below 2.
     ///
     /// # Errors
     ///
-    /// Fails when `tolerance` is not positive.
-    pub fn uniform_distances(
-        &self,
-        n_pts: usize,
-        tolerance: f64,
-        max_iterations: usize,
-    ) -> Result<Vec<f64>, SplineError> {
+    /// Fails when the output cannot be allocated.
+    pub fn uniform_distances(&self, n_pts: usize) -> Result<Vec<f64>, SplineError> {
         if n_pts < 2 {
             return Ok(vec![self.grid[0]]);
         }
-        if tolerance.is_nan() || tolerance <= 0.0 {
-            return Err(SplineError::InvalidTolerance);
+        let mut distances = Vec::new();
+        distances
+            .try_reserve_exact(n_pts)
+            .map_err(|_| SplineError::TooManyPoints)?;
+
+        let lengths: Vec<f64> = self.segments.iter().map(|s| s.length_to(1.0)).collect();
+        let total: f64 = lengths.iter().sum();
+        // Targets increase, so one forward sweep finds every target's segment.
+        let (mut idx, mut start) = (0, 0.0);
+        for k in 0..n_pts {
+            let target = total * k as f64 / (n_pts - 1) as f64;
+            while idx + 1 < lengths.len() && start + lengths[idx] < target {
+                start += lengths[idx];
+                idx += 1;
+            }
+            let local = (target - start).clamp(0.0, lengths[idx]);
+            let t = self.segments[idx].param_at_length(local, lengths[idx]);
+            distances.push(self.grid[idx] + t * (self.grid[idx + 1] - self.grid[idx]));
         }
+        distances[0] = self.grid[0];
+        distances[n_pts - 1] = self.grid[self.grid.len() - 1];
+        Ok(distances)
+    }
+}
 
-        // Initial uniform parameterization
-        let grid_start = self.grid[0];
-        let grid_span = self.grid[self.grid.len() - 1] - grid_start;
-        let inv_n_pts_minus_1 = 1.0 / ((n_pts - 1) as f64);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        // Pre-allocate with capacity
-        let mut dis_arr = Vec::with_capacity(n_pts);
-        for i in 0..n_pts {
-            dis_arr.push(grid_start + grid_span * (i as f64) * inv_n_pts_minus_1);
+    #[test]
+    fn test_gauss_legendre_is_exact_to_degree_31() {
+        for k in 0..32 {
+            let mut sum = 0.0;
+            for (x, w) in GAUSS_LEGENDRE_NODES.iter().zip(&GAUSS_LEGENDRE_WEIGHTS) {
+                sum += w * (0.5 * (1.0 - x)).powi(k) + w * (0.5 * (1.0 + x)).powi(k);
+            }
+            let exact = 1.0 / f64::from(k + 1);
+            assert!(
+                (0.5 * sum - exact).abs() < 1e-14,
+                "degree {k}: {} vs {exact}",
+                0.5 * sum
+            );
         }
-
-        // Pre-allocate these vectors to reuse across iterations
-        let mut arc_lengths = Vec::with_capacity(n_pts);
-        let mut uniform_lengths = Vec::with_capacity(n_pts);
-
-        // Reparameterize to achieve uniform arc length
-        for _ in 0..max_iterations {
-            let points = self.evaluate(&dis_arr, 0)?;
-
-            arc_lengths.clear();
-            arc_lengths.push(0.0);
-
-            let mut cumsum = 0.0;
-            for i in 1..n_pts {
-                let dx = points[i][0] - points[i - 1][0];
-                let dy = points[i][1] - points[i - 1][1];
-                cumsum += (dx * dx + dy * dy).sqrt();
-                arc_lengths.push(cumsum);
-            }
-
-            let total_length = cumsum;
-            if total_length < tolerance {
-                return Ok(dis_arr);
-            }
-
-            uniform_lengths.clear();
-            for i in 0..n_pts {
-                uniform_lengths.push(total_length * (i as f64) * inv_n_pts_minus_1);
-            }
-
-            // Check convergence
-            let mut max_error: f64 = 0.0;
-            for i in 0..n_pts {
-                let error = (arc_lengths[i] - uniform_lengths[i]).abs();
-                max_error = max_error.max(error);
-            }
-
-            if max_error < tolerance {
-                break;
-            }
-
-            // Use optimized interpolation
-            dis_arr = interpolate(&uniform_lengths, &arc_lengths, &dis_arr);
-        }
-
-        Ok(dis_arr)
     }
 }

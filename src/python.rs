@@ -96,22 +96,16 @@ fn linestrings_tangent_angles(
 ///   - n_pts: optional 1D NumPy array of usize (one per linestring)
 ///   - gaussian_sigmas: optional 1D NumPy array (one per linestring)
 ///   - bc_types: optional Vec<String> (one per linestring; "natural", "closed", or "clamped")
-///   - tolerance: float (default 1e-6)
-///   - max_iterations: int (default 100)
 ///
 /// Returns:
 ///   - list of NumPy arrays (each shape (m,2))
-// The argument list mirrors the Python signature.
-#[allow(clippy::too_many_arguments)]
 #[pyfunction(
     signature = (
         lines,
         distances=None,
         n_pts=None,
         gaussian_sigmas=None,
-        bc_types=None,
-        tolerance=1e-6,
-        max_iterations=100
+        bc_types=None
     )
 )]
 fn smooth_linestrings(
@@ -121,8 +115,6 @@ fn smooth_linestrings(
     n_pts: Option<PyReadonlyArray1<i64>>,
     gaussian_sigmas: Option<PyReadonlyArray1<f64>>,
     bc_types: Option<Vec<String>>,
-    tolerance: f64,
-    max_iterations: usize,
 ) -> PyResult<Vec<Py<PyArray2<f64>>>> {
     let n_lines = lines.len();
     let lines_vec: Vec<Vec<[f64; 2]>> = lines
@@ -150,17 +142,7 @@ fn smooth_linestrings(
     };
 
     let smoothed_vec = py
-        .detach(|| {
-            linestring::smooth_linestrings(
-                lines_vec,
-                ds,
-                n_pts_vec,
-                gs,
-                bc_conv,
-                Some(tolerance),
-                Some(max_iterations),
-            )
-        })
+        .detach(|| linestring::smooth_linestrings(lines_vec, ds, n_pts_vec, gs, bc_conv))
         .map_err(PyErr::from)?;
 
     Ok(smoothed_vec
@@ -175,7 +157,7 @@ fn smooth_linestrings(
 ///   CatmullRom(vertices: NDArray[float64], grid: NDArray[float64] | None = None, alpha: float | None = None, bc_type: Literal["natural", "closed", "clamped"] = "natural", gaussian_sigma: float | None = None)
 ///   Methods:
 ///     evaluate(distances: NDArray[float64], n: 0|1|2 = 0) -> NDArray[float64]
-///     uniform_distances(n_pts: int, tolerance: float = 1e-6, max_iterations: int = 100) -> NDArray[float64]
+///     uniform_distances(n_pts: int) -> NDArray[float64]
 #[pyclass(name = "CatmullRom")]
 struct CatmullRomWrapper {
     inner: CatmullRom,
@@ -225,18 +207,9 @@ impl CatmullRomWrapper {
         Ok(points_to_pyarray(py, pts))
     }
 
-    fn uniform_distances(
-        &self,
-        py: Python,
-        n_pts: usize,
-        tolerance: f64,
-        max_iterations: usize,
-    ) -> PyResult<Py<PyArray1<f64>>> {
+    fn uniform_distances(&self, py: Python, n_pts: usize) -> PyResult<Py<PyArray1<f64>>> {
         let distances = py
-            .detach(|| {
-                self.inner
-                    .uniform_distances(n_pts, tolerance, max_iterations)
-            })
+            .detach(|| self.inner.uniform_distances(n_pts))
             .map_err(PyErr::from)?;
         Ok(distances.into_pyarray(py).unbind())
     }

@@ -26,6 +26,6 @@ pub enum SplineError {
     InvalidPointCount,
     #[error("distance must be finite and positive")]
     InvalidDistance,
-    #[error("tolerance must be positive")]
-    InvalidTolerance,
+    #[error("Too many output points requested")]
+    TooManyPoints,
 }
