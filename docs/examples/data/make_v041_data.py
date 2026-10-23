@@ -60,7 +60,7 @@ def error_text(func: Callable[[], object]) -> str:
     """Name and message of what ``func`` raises; 0.4.1 panics raise a BaseException."""
     try:
         func()
-    except BaseException as e:
+    except BaseException as e:  # noqa: BLE001
         return f"{type(e).__name__}: {e}".strip()
     return "no error"
 
@@ -76,11 +76,8 @@ def best_times(func: Callable[[], object], repeat: int = 7) -> NDArray[np.float6
     return np.array(times)
 
 
-def main() -> None:
-    if "continuity" in inspect.signature(cs.CatmullRom).parameters:
-        raise RuntimeError("Run this script against the 0.4.1 wheel, not a newer build.")
-    out: dict[str, NDArray[np.generic]] = {}
-
+def record_curves(out: dict[str, NDArray[np.generic]]) -> None:
+    """Record spacing, pre-smoothing, ring, and derivative outputs."""
     bumps = noisy_bumps(200, 100, seed=123)
     params = [cs.CatmullRom(b, alpha=0.5).uniform_distances(100) for b in bumps]
     out["bumps_digest"] = digest(bumps)
@@ -112,6 +109,10 @@ def main() -> None:
     out["derivative_params"] = np.array([0.3, 1.5, 2.9, 4.0])
     out["derivatives"] = cs.CatmullRom(wavy, alpha=0.5).evaluate(out["derivative_params"], 1)
 
+
+def record_degenerate_inputs(out: dict[str, NDArray[np.generic]]) -> None:
+    """Record what 0.4.1 returns or raises for inputs it mishandles."""
+    line_100, wavy = out["line_100"], out["wavy"]
     zigzag = np.array([(0, 0), (1, 1), (2, 0), (3, 1)], dtype=float)
     out["zigzag"] = zigzag
     out["offset_grid_params"] = cs.CatmullRom(zigzag, grid=[1, 2, 3, 4]).uniform_distances(5)
@@ -138,6 +139,9 @@ def main() -> None:
     out["nan_coords"] = shapely.get_coordinates(cs.smooth_linestrings(with_nan, n_pts=5))
     out["xyz_points"] = cs.CatmullRom([(0, 0, 1), (1, 1, 2), (2, 0, 3)]).evaluate([0.5])
 
+
+def record_timing(out: dict[str, NDArray[np.generic]]) -> None:
+    """Record wall times for smoothing 10,000 lines and the machine they ran on."""
     lines = list(shapely.linestrings(noisy_bumps(10_000, 100, seed=2026)))
     out["timing_digest"] = digest(noisy_bumps(10_000, 100, seed=2026))
     out["smooth_times"] = best_times(lambda: cs.smooth_linestrings(lines, n_pts=[100] * len(lines)))
@@ -146,6 +150,15 @@ def main() -> None:
         f"numpy {np.__version__}, shapely {shapely.__version__}, catsmoothing {cs.__version__}"
     )
 
+
+def main() -> None:
+    if "continuity" in inspect.signature(cs.CatmullRom).parameters:
+        msg = "Run this script against the 0.4.1 wheel, not a newer build."
+        raise RuntimeError(msg)
+    out: dict[str, NDArray[np.generic]] = {}
+    record_curves(out)
+    record_degenerate_inputs(out)
+    record_timing(out)
     np.savez_compressed(OUTPUT, **out)
 
 

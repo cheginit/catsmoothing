@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 @pytest.fixture(autouse=True)
 def add_doctest_imports(doctest_namespace: dict[str, object]) -> None:
     """Add catsmoothing namespace for doctest."""
-    import catsmoothing as cs  # noqa: PLC0415
+    import catsmoothing as cs
 
     doctest_namespace["catsmoothing"] = cs
 
@@ -27,7 +27,8 @@ def block_optional_imports(monkeypatch: pytest.MonkeyPatch) -> Callable[..., Non
 
         def mocked_import(name: str, *args: Any, **kwargs: Any):
             if name in names:
-                raise ImportError(f"Import of '{name}' is blocked for testing")
+                msg = f"Import of '{name}' is blocked for testing"
+                raise ImportError(msg)
             return original_import(name, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "__import__", mocked_import)
