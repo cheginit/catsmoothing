@@ -233,6 +233,10 @@ reportUntypedFunctionDecorator = false
 reportAttributeAccessIssue = false
 typeCheckingMode = "strict"
 
+[tool.pixi.dependencies]
+maturin = "*"
+uv = "*"
+
 [tool.pixi.environments]
 dev = { features = [ "dev", "py314" ] }
 test310 = { features = [ "test", "py310" ] }
@@ -256,15 +260,11 @@ spell = "codespell -w"
 
 [tool.pixi.feature.py310.dependencies]
 python = "~=3.10.0"
-maturin = "*"
-uv = "*"
 pip = "*"
 tomli = "*"
 
 [tool.pixi.feature.py314.dependencies]
 python = "~=3.14.0"
-maturin = "*"
-uv = "*"
 pip = "*"
 
 [tool.pixi.feature.test.tasks]
