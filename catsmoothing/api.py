@@ -3,9 +3,8 @@
 # pyright: reportMissingImports=false
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, overload
-
 import warnings
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 import shapely
@@ -119,11 +118,11 @@ class CatmullRom:
         "_spline",
         "alpha",
         "bc_type",
+        "continuity",
         "gaussian_sigma",
         "grid",
         "sigma_units",
         "taubin_iterations",
-        "continuity",
     )
 
     def __init__(

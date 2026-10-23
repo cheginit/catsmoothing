@@ -265,7 +265,9 @@ def test_invalid_inputs_raise_value_error(call) -> None:
     "call",
     [
         lambda: cs.smooth_linestrings(LINE, n_pts=10, tolerance=1e-3),
-        lambda: cs.smooth_polygon(shapely.Polygon([(0, 0), (1, 0), (1, 1)]), n_pts=10, max_iterations=5),
+        lambda: cs.smooth_polygon(
+            shapely.Polygon([(0, 0), (1, 0), (1, 1)]), n_pts=10, max_iterations=5
+        ),
         lambda: CatmullRom([(0, 0), (1, 1), (2, 0)]).uniform_distances(5, tolerance=1e-3),
     ],
 )
@@ -337,7 +339,9 @@ def test_smoothed_rings_close_exactly() -> None:
     angles = np.linspace(0, 2 * np.pi, 50, endpoint=False)
     ring = shapely.LinearRing(np.c_[1e5 + 10 * np.cos(angles), 4e6 + 13 * np.sin(angles)])
     for bc in ("clamped", "closed"):
-        assert len(shapely.get_coordinates(cs.smooth_linestrings(ring, n_pts=40, bc_types=bc))) == 40
+        assert (
+            len(shapely.get_coordinates(cs.smooth_linestrings(ring, n_pts=40, bc_types=bc))) == 40
+        )
     assert len(cs.smooth_polygon(shapely.Polygon(ring), n_pts=40).exterior.coords) == 40
 
 
@@ -350,7 +354,9 @@ def test_huge_sigma_is_bounded(units: Literal["vertices", "length"]) -> None:
     assert_close(coords[:, 0], coords[:, 1], 1e-9)
     ring = shapely.LinearRing([(0, 0), (1, 0), (1, 1), (0, 1)])
     with pytest.raises(ValueError, match="two vertices"):
-        cs.smooth_linestrings(ring, n_pts=9, gaussian_sigmas=1e9, sigma_units=units, bc_types="closed")
+        cs.smooth_linestrings(
+            ring, n_pts=9, gaussian_sigmas=1e9, sigma_units=units, bc_types="closed"
+        )
 
 
 def test_ring_tangent_angles_are_periodic() -> None:
