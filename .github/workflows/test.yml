@@ -3,12 +3,8 @@ name: CI
 on:
   push:
     branches:
-    - '**'
-    tags-ignore:
-    - '**'
+    - main
   pull_request:
-    branches:
-    - '**'
   workflow_dispatch:
   workflow_call:
 
@@ -19,7 +15,7 @@ concurrency:
 
 jobs:
   test:
-    name: python ${{ matrix.environment }}, ${{ matrix.os }}
+    name: Test (${{ matrix.environment }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -45,7 +41,7 @@ jobs:
         slug: ${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}
 
   rust:
-    name: rust fmt, clippy, and tests
+    name: Rust
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
@@ -55,3 +51,27 @@ jobs:
       run: cargo clippy --features python --all-targets -- -D warnings
     - name: Test
       run: cargo test
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: prefix-dev/setup-pixi@v0.9.3
+      with:
+        pixi-version: v0.82.1
+        environments: typecheck
+    - run: pixi r -e typecheck typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: prefix-dev/setup-pixi@v0.9.3
+      with:
+        pixi-version: v0.82.1
+        environments: lint
+    - run: pixi r -e lint lint
+    # Needs network: resolves the runtime dependencies from PyPI and checks advisories.
+    - run: pixi r -e lint audit
