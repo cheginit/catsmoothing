@@ -58,6 +58,10 @@ benchmark = [
 lint = [
   "codespell",
   "pre-commit",
+  "pysentry-rs",
+  # pysentry resolves transitive dependencies through uv; without it, it audits only the
+  # direct dependencies' lower bounds.
+  "uv",
 ]
 typecheck = [
   "pyright",
@@ -96,8 +100,14 @@ benchmark = { cmd = [ "pytest", "catsmoothing/tests", "--codspeed" ], depends-on
 build-docs = "mkdocs build --strict"
 docs = { cmd = [ "mkdocs", "serve" ], depends-on = [ "preinstall", "build-docs" ] }
 
+[tool.pixi.feature.lint.dependencies]
+cargo-audit = "*"
+
 [tool.pixi.feature.lint.tasks]
 lint = "pre-commit run --all-files"
+# Resolves the runtime dependencies from PyPI, as an install would, and checks them and
+# Cargo.lock against the advisory databases. Needs network access.
+audit = "pysentry-rs . --fail-on low --requirements-files scripts/audit-requirements.txt && cargo audit"
 pcupdate = "pre-commit autoupdate"
 spell = "codespell -w"
 
