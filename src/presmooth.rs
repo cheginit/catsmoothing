@@ -71,10 +71,13 @@ pub(crate) fn gaussian_by_length(vertices: &[Vec2D], sigma: f64, closed: bool) -
     let mut total = 0.0;
     positions.push(total);
     for pair in vertices.windows(2) {
-        total += (pair[1] - pair[0]).norm();
+        let step = pair[1] - pair[0];
+        total += step.x.hypot(step.y);
         positions.push(total);
     }
-    if n_verts <= 2 || sigma <= 0.0 || total <= 0.0 {
+    // A nonfinite length would keep the window walk below from ever ending; the spline built
+    // from these vertices then fails on its own length.
+    if n_verts <= 2 || sigma <= 0.0 || !(total > 0.0 && total.is_finite()) {
         return vertices.to_vec();
     }
     let period = if closed { total } else { 2.0 * total };
@@ -92,7 +95,7 @@ pub(crate) fn gaussian_by_length(vertices: &[Vec2D], sigma: f64, closed: bool) -
                 } else {
                     positions[1]
                 };
-                0.5 * (before + after)
+                0.5 * (before + after) / total
             })
             .collect();
         return flat_kernel_limit(vertices, &fractions, &spans, closed);
@@ -131,7 +134,8 @@ pub(crate) fn gaussian_by_length(vertices: &[Vec2D], sigma: f64, closed: bool) -
                 if (s - center).abs() > reach {
                     break;
                 }
-                let span = 0.5 * (sample(k + 1).0 - sample(k - 1).0);
+                // Spans as fractions of the line keep weight times coordinate from overflowing.
+                let span = 0.5 * (sample(k + 1).0 - sample(k - 1).0) / total;
                 // Normalizing first keeps tiny sigmas from forming 0 * inf.
                 let z = (s - center) / sigma;
                 let w = (-0.5 * z * z).exp() * span;
@@ -356,6 +360,23 @@ mod tests {
             .iter()
             .all(|p| (*p - Vec2D::new(2.0, 1.75)).norm() < 1e-12));
         assert!(center.x.is_finite() && center.y.is_finite());
+    }
+
+    #[test]
+    fn test_length_kernel_handles_huge_coordinates() {
+        let line = vec![
+            Vec2D::new(0.0, 0.0),
+            Vec2D::new(1e155, 3e154),
+            Vec2D::new(2e155, 0.0),
+        ];
+        let smoothed = gaussian_by_length(&line, 1e154, false);
+        assert!(smoothed.iter().all(|p| p.x.is_finite() && p.y.is_finite()));
+        let beyond = vec![
+            Vec2D::new(-1.5e308, 0.0),
+            Vec2D::new(0.0, 0.0),
+            Vec2D::new(1.5e308, 0.0),
+        ];
+        assert_eq!(gaussian_by_length(&beyond, 1.0, false), beyond);
     }
 
     #[test]
