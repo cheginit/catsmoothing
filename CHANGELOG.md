@@ -59,6 +59,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     They were compared against the centripetal parameter (a sum of square roots of chord
     lengths) and counted intervals as points, so `distances=10` on a 100-unit line
     returned 2 points. Points are now spaced evenly, no wider than the given distance.
+- The last point of a curve is returned exactly, so smoothed rings close exactly. At
+    projected-CRS magnitudes rounding left them open by about 1e-9, and shapely then
+    appended an extra closing vertex.
 - Open two-vertex lines no longer fail with "Internal error in tangent calculation";
     they produce a straight segment.
 - `CatmullRom.evaluate` with `n=1` or `n=2` now returns derivatives with respect to the

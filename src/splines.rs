@@ -261,6 +261,8 @@ pub struct CatmullRom {
     // Parameter value where each segment starts, plus the end of the last one.
     knots: Vec<f64>,
     segments: Vec<Segment>,
+    // Returned exactly at the last knot, where summing the cubic's coefficients would round.
+    last_vertex: Vec2D,
 }
 
 impl CatmullRom {
@@ -357,6 +359,7 @@ impl CatmullRom {
             grid,
             knots,
             segments,
+            last_vertex: vertices_vec[vertices_vec.len() - 1],
         })
     }
 
@@ -515,6 +518,9 @@ impl CatmullRom {
     }
 
     fn evaluate_one(&self, distance: f64, n: usize) -> [f64; 2] {
+        if n == 0 && distance == self.knots[self.knots.len() - 1] {
+            return [self.last_vertex.x, self.last_vertex.y];
+        }
         // Points outside the grid extrapolate from the first or last segment.
         let idx = self
             .knots

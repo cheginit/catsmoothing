@@ -868,3 +868,29 @@ fn test_continuity_splits() {
         }
     }
 }
+
+#[test]
+fn test_last_vertex_is_returned_exactly() {
+    // At projected-CRS magnitudes, summing the last segment's coefficients misses the end
+    // vertex by rounding, which leaves closed rings slightly open.
+    let ring: Vec<[f64; 2]> = (0..30)
+        .map(|i| {
+            let a = std::f64::consts::TAU * f64::from(i) / 30.0;
+            [4.0e6 + 10.0 * a.cos(), 5.0e5 + 13.0 * a.sin()]
+        })
+        .collect();
+    for continuity in [Continuity::C1, Continuity::G2] {
+        let options = SplineOptions {
+            alpha: Some(0.5),
+            bc_type: BoundaryCondition::Closed,
+            continuity,
+            ..SplineOptions::default()
+        };
+        let spline = CatmullRom::new(ring.clone(), options).unwrap();
+        let ends = spline
+            .evaluate(&[spline.grid()[0], *spline.grid().last().unwrap()], 0)
+            .unwrap();
+        assert_eq!(ends[0], ring[0]);
+        assert_eq!(ends[1], ring[0]);
+    }
+}
