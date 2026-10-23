@@ -9,7 +9,7 @@ description = "Smoothing Shapely geometries using Catmull-Rom spline"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [ { name = "Taher Chegini", email = "cheginit@gmail.com" } ]
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
@@ -17,11 +17,9 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Rust",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: GIS",
@@ -74,7 +72,7 @@ strip = true
 profile = "release"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py313"
 line-length = 100
 exclude = [ "__pycache__", "benchmarks" ]
 lint.select = [
@@ -197,6 +195,7 @@ ignore-words-list = "crate,gages"
 
 [tool.pyproject-fmt]
 expand_tables = [ "tool.pixi" ]
+max_supported_python = "3.15"
 
 [tool.pytest]
 ini_options.addopts = [
@@ -239,8 +238,8 @@ uv = "*"
 
 [tool.pixi.environments]
 dev = { features = [ "dev", "py314" ] }
-test310 = { features = [ "test", "py310" ] }
-test314 = { features = [ "test", "py314" ] }
+test313 = { features = [ "test", "py313" ] }
+test315 = { features = [ "test", "py315" ] }
 benchmark = { features = [ "benchmark", "py314" ] }
 typecheck = { features = [ "typecheck", "py314" ] }
 lint = { features = [ "lint", "py314" ], no-default-feature = true }
@@ -258,13 +257,16 @@ lint = "pre-commit run --all-files"
 pcupdate = "pre-commit autoupdate"
 spell = "codespell -w"
 
-[tool.pixi.feature.py310.dependencies]
-python = "~=3.10.0"
+[tool.pixi.feature.py313.dependencies]
+python = "~=3.13.0"
 pip = "*"
-tomli = "*"
 
 [tool.pixi.feature.py314.dependencies]
 python = "~=3.14.0"
+pip = "*"
+
+[tool.pixi.feature.py315.dependencies]
+python = "~=3.15.0"
 pip = "*"
 
 [tool.pixi.feature.test.tasks]
