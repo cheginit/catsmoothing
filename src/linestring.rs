@@ -54,8 +54,6 @@ pub fn smooth_linestring(
     n_pts: Option<usize>,
     gaussian_sigma: Option<f64>,
     bc_type: Option<BoundaryCondition>,
-    tolerance: Option<f64>,
-    max_iterations: Option<usize>,
 ) -> Result<Vec<[f64; 2]>, SplineError> {
     if n_pts.is_none() && distance.is_none() {
         return Err(SplineError::InvalidSmoothingParameters);
@@ -81,11 +79,7 @@ pub fn smooth_linestring(
         }
         (None, None) => unreachable!("checked above"),
     };
-    let distances = spline.uniform_distances(
-        n_pts,
-        tolerance.unwrap_or(1e-6),
-        max_iterations.unwrap_or(100),
-    )?;
+    let distances = spline.uniform_distances(n_pts)?;
     let points = spline.evaluate(&distances, 0)?;
     Ok(points)
 }
@@ -96,8 +90,6 @@ pub fn smooth_linestrings(
     n_pts_list: Vec<Option<usize>>,
     gaussian_sigmas: Vec<Option<f64>>,
     bc_types: Vec<Option<BoundaryCondition>>,
-    tolerance: Option<f64>,
-    max_iterations: Option<usize>,
 ) -> Result<Vec<Vec<[f64; 2]>>, SplineError> {
     if lines.len() != distances.len()
         || lines.len() != n_pts_list.len()
@@ -114,15 +106,7 @@ pub fn smooth_linestrings(
         .zip(bc_types)
         .map(
             |((((vertices, distance), n_pts), gaussian_sigma), bc_type)| {
-                smooth_linestring(
-                    vertices,
-                    distance,
-                    n_pts,
-                    gaussian_sigma,
-                    bc_type,
-                    tolerance,
-                    max_iterations,
-                )
+                smooth_linestring(vertices, distance, n_pts, gaussian_sigma, bc_type)
             },
         )
         .collect()
