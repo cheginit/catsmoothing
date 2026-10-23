@@ -22,6 +22,7 @@ class CatmullRom:
         bc_type: Literal["natural", "closed", "clamped"] = "natural",
         gaussian_sigma: float | None = None,
         sigma_units: Literal["vertices", "length"] = "vertices",
+        taubin_iterations: int | None = None,
     ) -> None: ...
     def evaluate(self, distances: FloatArray, n: Literal[0, 1, 2] = 0) -> FloatArray: ...
     def uniform_distances(self, n_pts: int) -> FloatArray: ...
@@ -30,6 +31,7 @@ def linestrings_tangent_angles(
     vertices: list[FloatArray],
     gaussian_sigmas: list[float] | None = None,
     sigma_units: Literal["vertices", "length"] = "vertices",
+    taubin_iterations: int | None = None,
 ) -> list[FloatArray]: ...
 
 def smooth_linestrings(
@@ -39,4 +41,5 @@ def smooth_linestrings(
     gaussian_sigmas: FloatArray | None = None,
     bc_types: list[str] | None = None,
     sigma_units: Literal["vertices", "length"] = "vertices",
+    taubin_iterations: int | None = None,
 ) -> list[FloatArray]: ...

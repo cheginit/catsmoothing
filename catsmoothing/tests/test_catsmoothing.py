@@ -294,6 +294,25 @@ def test_sigma_units_length() -> None:
         cs.smooth_linestrings(line, n_pts=30, gaussian_sigmas=0.5, sigma_units="meters")  # pyright: ignore[reportArgumentType]
 
 
+def test_taubin_iterations() -> None:
+    rng = np.random.default_rng(1)
+    angles = np.linspace(0, 2 * np.pi, 120, endpoint=False)
+    radii = 10 + 0.3 * rng.standard_normal(120)
+    poly = shapely.Polygon(np.c_[radii * np.cos(angles), radii * np.sin(angles)])
+    taubin = cs.smooth_polygon(poly, n_pts=200, taubin_iterations=10)
+    gaussian = cs.smooth_polygon(poly, n_pts=200, gaussian_sigma=3)
+    # Taubin keeps the area where Gaussian averaging shrinks it.
+    assert abs(taubin.area / poly.area - 1) < 0.01
+    assert gaussian.area < taubin.area
+    assert "taubin_iterations=3" in repr(CatmullRom(poly.exterior.coords, taubin_iterations=3))
+
+    for bad in (0, -1):
+        with pytest.raises(ValueError, match="taubin_iterations"):
+            cs.smooth_linestrings(LINE, n_pts=10, taubin_iterations=bad)
+    with pytest.raises(ValueError, match="cannot be combined"):
+        cs.smooth_linestrings(LINE, n_pts=10, gaussian_sigmas=1.0, taubin_iterations=2)
+
+
 def test_repeated_vertices() -> None:
     line = shapely.LineString([(0, 0), (1, 1), (1, 1), (2, 0)])
     result = cs.smooth_linestrings(line, n_pts=5)

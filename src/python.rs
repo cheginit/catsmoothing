@@ -1,3 +1,6 @@
+// Binding signatures mirror the Python API's keyword arguments.
+#![allow(clippy::too_many_arguments)]
+
 use crate::{
     linestring, BoundaryCondition, CatmullRom, LineToSmooth, Presmoothing, SigmaUnits, Spacing,
     SplineError, SplineOptions,
@@ -49,9 +52,30 @@ fn points_to_pyarray(py: Python<'_>, points: Vec<[f64; 2]>) -> Py<PyArray2<f64>>
         .unbind()
 }
 
-// Helper: an optional Gaussian sigma as a presmoothing setting.
-fn gaussian_presmoothing(sigma: Option<f64>, units: SigmaUnits) -> Option<Presmoothing> {
-    sigma.map(|sigma| Presmoothing::Gaussian { sigma, units })
+// Helper: a batch-wide Taubin setting, which excludes Gaussian sigmas.
+fn taubin_setting(taubin_iterations: Option<i64>, any_sigma: bool) -> PyResult<Option<usize>> {
+    let Some(n) = taubin_iterations else {
+        return Ok(None);
+    };
+    if any_sigma {
+        return Err(SplineError::ConflictingPresmoothing.into());
+    }
+    match usize::try_from(n) {
+        Ok(n) if n >= 1 => Ok(Some(n)),
+        _ => Err(SplineError::InvalidTaubinIterations.into()),
+    }
+}
+
+// Helper: one line's presmoothing, Taubin when set, otherwise its optional Gaussian sigma.
+fn presmoothing_for(
+    sigma: Option<f64>,
+    units: SigmaUnits,
+    taubin: Option<usize>,
+) -> Option<Presmoothing> {
+    match taubin {
+        Some(iterations) => Some(Presmoothing::Taubin { iterations }),
+        None => sigma.map(|sigma| Presmoothing::Gaussian { sigma, units }),
+    }
 }
 
 // Helper: validate array length matches expected count, returning PyErr if not
@@ -72,16 +96,23 @@ fn validate_array_length(arr_len: usize, expected: usize, name: &str) -> PyResul
 ///
 /// Returns:
 ///   - list of 1D NumPy arrays of tangent angles.
-#[pyfunction(signature = (vertices, gaussian_sigmas=None, sigma_units="vertices"))]
+#[pyfunction(signature = (
+    vertices,
+    gaussian_sigmas=None,
+    sigma_units="vertices",
+    taubin_iterations=None
+))]
 fn linestrings_tangent_angles(
     py: Python,
     vertices: Vec<PyReadonlyArray2<f64>>,
     gaussian_sigmas: Option<Vec<Option<f64>>>,
     sigma_units: &str,
+    taubin_iterations: Option<i64>,
 ) -> PyResult<Vec<Py<PyArray1<f64>>>> {
     let units: SigmaUnits = sigma_units.parse()?;
     let n_lines = vertices.len();
     let gs = gaussian_sigmas.unwrap_or_else(|| vec![None; n_lines]);
+    let taubin = taubin_setting(taubin_iterations, gs.iter().any(Option::is_some))?;
     validate_array_length(gs.len(), n_lines, "gaussian_sigmas")?;
 
     let lines_vec: Vec<Vec<[f64; 2]>> = vertices
@@ -92,7 +123,7 @@ fn linestrings_tangent_angles(
         .detach(|| {
             let presmoothing = gs
                 .into_iter()
-                .map(|s| gaussian_presmoothing(s, units))
+                .map(|s| presmoothing_for(s, units, taubin))
                 .collect();
             linestring::lines_tangents(lines_vec, presmoothing)
         })
@@ -122,7 +153,8 @@ fn linestrings_tangent_angles(
         n_pts=None,
         gaussian_sigmas=None,
         bc_types=None,
-        sigma_units="vertices"
+        sigma_units="vertices",
+        taubin_iterations=None
     )
 )]
 fn smooth_linestrings(
@@ -133,6 +165,7 @@ fn smooth_linestrings(
     gaussian_sigmas: Option<PyReadonlyArray1<f64>>,
     bc_types: Option<Vec<String>>,
     sigma_units: &str,
+    taubin_iterations: Option<i64>,
 ) -> PyResult<Vec<Py<PyArray2<f64>>>> {
     let units: SigmaUnits = sigma_units.parse()?;
     let n_lines = lines.len();
@@ -150,6 +183,7 @@ fn smooth_linestrings(
         })
         .collect::<PyResult<Vec<_>>>()?;
     let gs = per_line(gaussian_sigmas, n_lines, "gaussian_sigmas")?;
+    let taubin = taubin_setting(taubin_iterations, gs.iter().any(Option::is_some))?;
 
     let bc_conv: Vec<Option<BoundaryCondition>> = if let Some(bcs) = bc_types {
         validate_array_length(bcs.len(), n_lines, "bc_types")?;
@@ -170,7 +204,7 @@ fn smooth_linestrings(
         let options = SplineOptions {
             alpha: Some(0.5),
             bc_type: bc_conv[i].unwrap_or(BoundaryCondition::Clamped),
-            presmoothing: gaussian_presmoothing(gs[i], units),
+            presmoothing: presmoothing_for(gs[i], units, taubin),
             ..SplineOptions::default()
         };
         jobs.push(LineToSmooth {
@@ -211,7 +245,8 @@ impl CatmullRomWrapper {
         alpha=None,
         bc_type="natural",
         gaussian_sigma=None,
-        sigma_units="vertices"
+        sigma_units="vertices",
+        taubin_iterations=None
     ))]
     fn new(
         py: Python,
@@ -221,8 +256,10 @@ impl CatmullRomWrapper {
         bc_type: &str,
         gaussian_sigma: Option<f64>,
         sigma_units: &str,
+        taubin_iterations: Option<i64>,
     ) -> PyResult<Self> {
         let units: SigmaUnits = sigma_units.parse()?;
+        let taubin = taubin_setting(taubin_iterations, gaussian_sigma.is_some())?;
         let verts: Vec<[f64; 2]> = array2_to_vec(vertices.as_array())?;
         let grid_opt: Option<Vec<f64>> = grid.map(|g| g.as_array().to_vec());
         let bc: BoundaryCondition = bc_type.parse()?;
@@ -232,7 +269,7 @@ impl CatmullRomWrapper {
                     grid: grid_opt,
                     alpha,
                     bc_type: bc,
-                    presmoothing: gaussian_presmoothing(gaussian_sigma, units),
+                    presmoothing: presmoothing_for(gaussian_sigma, units, taubin),
                 };
                 CatmullRom::new(verts, options)
             })

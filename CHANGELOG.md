@@ -13,6 +13,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     line. Each vertex is weighted by the length of line it stands for, so unevenly
     spaced vertices are smoothed evenly. Available on `CatmullRom`,
     `smooth_linestrings`, `smooth_polygon`, and `linestrings_tangent_angles`.
+- `taubin_iterations` applies Taubin lambda/mu smoothing (lambda 0.5, mu -0.53) to the
+    vertices before fitting. It damps jitter while keeping a curve's size, where Gaussian
+    smoothing shrinks it. Available on the same functions as `sigma_units`.
 ### Changed
 
 - `tolerance` and `max_iterations` of `smooth_linestrings` and `smooth_polygon` are

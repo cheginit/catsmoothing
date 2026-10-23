@@ -146,9 +146,75 @@ pub(crate) fn gaussian(vertices: &[Vec2D], sigma: f64, closed: bool) -> Vec<Vec2
     smoothed
 }
 
+/// Taubin lambda/mu smoothing (Taubin 1995). Each iteration moves every vertex toward the
+/// midpoint of its neighbors by `LAMBDA`, then away from it by `|MU|`, which damps jitter
+/// without the shrinkage of repeated averaging. Open lines keep their end vertices; closed
+/// rings wrap around.
+pub(crate) fn taubin(vertices: &[Vec2D], iterations: usize, closed: bool) -> Vec<Vec2D> {
+    const LAMBDA: f64 = 0.5;
+    const MU: f64 = -0.53;
+    let n_verts = vertices.len();
+    let mut current = vertices.to_vec();
+    if n_verts <= 2 {
+        return current;
+    }
+    let mut next = current.clone();
+    for _ in 0..iterations {
+        for factor in [LAMBDA, MU] {
+            if closed {
+                let n_ring = n_verts - 1;
+                for i in 0..n_ring {
+                    let left = current[(i + n_ring - 1) % n_ring];
+                    let right = current[(i + 1) % n_ring];
+                    next[i] = current[i] + ((left + right) * 0.5 - current[i]) * factor;
+                }
+                next[n_ring] = next[0];
+            } else {
+                for i in 1..n_verts - 1 {
+                    let midpoint = (current[i - 1] + current[i + 1]) * 0.5;
+                    next[i] = current[i] + (midpoint - current[i]) * factor;
+                }
+            }
+            std::mem::swap(&mut current, &mut next);
+        }
+    }
+    current
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_taubin_damps_jitter_without_shrinking() {
+        // Alternating jitter is the highest frequency, which the first lambda step removes at
+        // every interior vertex. The pinned, jittered end vertices then leak inward one vertex
+        // per half step, so only vertices more than ten steps from either end are checked.
+        let line: Vec<Vec2D> = (0..41)
+            .map(|i| Vec2D::new(f64::from(i), if i % 2 == 0 { 0.1 } else { -0.1 }))
+            .collect();
+        let smoothed = taubin(&line, 5, false);
+        let worst = smoothed[11..30]
+            .iter()
+            .map(|p| p.y.abs())
+            .fold(0.0, f64::max);
+        assert!(worst < 0.01, "jitter left: {worst}");
+
+        // A smooth ring keeps its radius, where Gaussian averaging would shrink it.
+        let n = 64;
+        let mut ring: Vec<Vec2D> = (0..n)
+            .map(|i| {
+                let a = std::f64::consts::TAU * f64::from(i) / f64::from(n);
+                Vec2D::new(a.cos(), a.sin())
+            })
+            .collect();
+        ring.push(ring[0]);
+        for p in taubin(&ring, 10, true) {
+            assert!((p.norm() - 1.0).abs() < 0.005, "radius {}", p.norm());
+        }
+        let shrunk = gaussian(&ring, 2.0, true)[0].norm();
+        assert!(shrunk < 0.99, "Gaussian reference should shrink: {shrunk}");
+    }
 
     fn sine(xs: &[f64]) -> Vec<Vec2D> {
         xs.iter().map(|&x| Vec2D::new(x, x.sin())).collect()
