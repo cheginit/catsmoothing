@@ -39,6 +39,13 @@ def _to_array(arr: Any, dtype: Literal["f8", "i8"]) -> NDArray[np.float64] | NDA
     return np.asarray(np.atleast_1d(arr), dtype=dtype)
 
 
+def _stack(lines: NDArray[np.object_]) -> tuple[FloatArray, NDArray[np.int64]]:
+    """Stack all lines' coordinates with the offset where each line starts, plus the total."""
+    coords, index = shapely.get_coordinates(lines, return_index=True)
+    offsets = np.searchsorted(index, np.arange(len(lines) + 1)).astype("i8")
+    return coords, offsets
+
+
 def _warn_ignored(tolerance: float | None, max_iterations: int | None) -> None:
     """Warn that the iteration controls of the old spacing algorithm are ignored."""
     if tolerance is not None or max_iterations is not None:
@@ -335,8 +342,10 @@ def smooth_linestrings(
     if bc_types is not None:
         bc_list = [bc_types] if isinstance(bc_types, str) else list(bc_types)
 
-    smoothed = _smooth_rs(
-        [shapely.get_coordinates(line) for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
+    coords, offsets = _stack(lines)  # pyright: ignore[reportArgumentType]
+    flat, counts = _smooth_rs(
+        coords,
+        offsets,
         _to_array(distances, "f8") if distances is not None else None,
         _to_array(n_pts, "i8") if n_pts is not None else None,
         _to_array(gaussian_sigmas, "f8") if gaussian_sigmas is not None else None,
@@ -346,14 +355,14 @@ def smooth_linestrings(
         continuity,
     )
 
-    to_geometry = (
-        shapely.LineString if t == 1 else shapely.LinearRing
-        for t in geo_types  # pyright: ignore[reportGeneralTypeIssues]
-    )
-    smoothed = [func(line) for line, func in zip(smoothed, to_geometry)]
+    index = np.repeat(np.arange(len(counts)), counts)
+    is_ring = (geo_types == 2)[index]
+    smoothed = np.empty(len(counts), dtype=object)
+    shapely.linestrings(flat[~is_ring], indices=index[~is_ring], out=smoothed)
+    shapely.linearrings(flat[is_ring], indices=index[is_ring], out=smoothed)
     if len(smoothed) == 1:
         return smoothed[0]
-    return smoothed
+    return smoothed.tolist()
 
 
 @overload
@@ -420,15 +429,12 @@ def linestrings_tangent_angles(
         else:
             gs_list = [float(s) for s in gaussian_sigmas]
 
-    angles = _tangent_angles_rs(
-        [shapely.get_coordinates(line) for line in lines],  # pyright: ignore[reportGeneralTypeIssues]
-        gs_list,
-        sigma_units,
-        taubin_iterations,
-    )
+    coords, offsets = _stack(lines)  # pyright: ignore[reportArgumentType]
+    flat, counts = _tangent_angles_rs(coords, offsets, gs_list, sigma_units, taubin_iterations)
+    angles = np.split(flat, np.cumsum(counts)[:-1])
     if len(angles) == 1:
-        return np.asarray(angles[0])
-    return [np.asarray(angle) for angle in angles]
+        return angles[0]
+    return angles
 
 
 def _poly_smooth(

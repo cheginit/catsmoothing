@@ -29,14 +29,16 @@ class CatmullRom:
     def uniform_distances(self, n_pts: int) -> FloatArray: ...
 
 def linestrings_tangent_angles(
-    vertices: list[FloatArray],
+    coords: FloatArray,
+    offsets: IntArray,
     gaussian_sigmas: list[float] | None = None,
     sigma_units: Literal["vertices", "length"] = "vertices",
     taubin_iterations: int | None = None,
-) -> list[FloatArray]: ...
+) -> tuple[FloatArray, IntArray]: ...
 
 def smooth_linestrings(
-    lines: list[FloatArray],
+    coords: FloatArray,
+    offsets: IntArray,
     distances: FloatArray | None = None,
     n_pts: IntArray | None = None,
     gaussian_sigmas: FloatArray | None = None,
@@ -44,4 +46,4 @@ def smooth_linestrings(
     sigma_units: Literal["vertices", "length"] = "vertices",
     taubin_iterations: int | None = None,
     continuity: Literal["c1", "g2", "c2"] = "c1",
-) -> list[FloatArray]: ...
+) -> tuple[FloatArray, IntArray]: ...
