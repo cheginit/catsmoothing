@@ -200,6 +200,7 @@ lint.ignore = [
   "TRY003",  # ValueError messages stay at the raise site
   "TRY301",  # raising inside try is fine
 ]
+lint.per-file-ignores.".agents/skills/*/*.py" = [ "INP001" ]
 lint.per-file-ignores."catsmoothing/tests/*.py" = [
   "D100",
   "D101",
