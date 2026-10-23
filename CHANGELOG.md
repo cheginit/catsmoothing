@@ -28,11 +28,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Supported Python versions are 3.13 to 3.15; Python 3.10 to 3.12 are no longer
     supported. Extension builds use PyO3 0.30, which supports Python 3.15.
 - `smooth_linestrings`, `smooth_polygon`, and `CatmullRom.uniform_distances` space points
-    by equal arc length, computed with 16-point Gauss-Legendre quadrature and a bracketed
-    Newton inverse. The old fixed-point chord iteration converged on 0 of 200 noisy test
-    lines and returned chords up to three times the mean; spacing is now equal within about
-    1e-5 relative. Smoothing a 2000-vertex line is about 45x faster than in 0.4.1, and
-    2000 lines of 100 vertices about 20x faster.
+    by equal arc length, computed with adaptive 16-point Gauss-Legendre quadrature and a
+    bracketed Newton inverse. The old fixed-point chord iteration converged on 0 of 200
+    noisy test lines and returned chords up to three times the mean; spacing is now equal
+    within about 2e-8 relative, including across points where a curve doubles back.
+    Smoothing a 2000-vertex line is about 19x faster than in 0.4.1, and 2000 lines of 100
+    vertices about 17x faster.
 - Spline segments store their cubic coefficients inline and evaluate with Horner's
     rule, and per-line work runs serially below 4096 points. Building a 2000-vertex
     spline is about 6x faster, and smoothing 2000 lines of 100 vertices about 2x faster.
