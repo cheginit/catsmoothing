@@ -153,6 +153,9 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
     of the ring's bounding-box diagonal.
 - **Why:** Rounding at projected-CRS magnitudes left smoothed rings open, and Shapely
     then appended an extra closing vertex.
+- **Rejected:** 0.4.1's per-coordinate test with a tolerance of 1e-5 of the coordinate
+    value. At UTM magnitudes it takes points up to 5 m apart in easting and 40 m in
+    northing as one, so it dropped a real vertex that close to the start.
 
 ### D-14: Batches cross the boundary once, without the GIL
 
@@ -252,8 +255,9 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
 
 `python -c` puts the current directory on `sys.path`, so a probe of the 0.4.1 wheel run
 from the repository root imported the checkout's `catsmoothing/` and reported the new
-behavior. **Check:** run such probes from outside the repository and print
-`catsmoothing.__file__`.
+behavior. It made the changelog's 0.4.1 ring-vertex bug look unreproducible until a
+build of the v0.4.1 tag, run from outside the repository, showed it. **Check:** run such
+probes from outside the repository and print `catsmoothing.__file__`.
 
 ### L-02: mdformat without its frontmatter plugin breaks skills
 
@@ -267,14 +271,7 @@ list, and both silently stop loading that way. **Check:** `mdformat-frontmatter`
 taken after `pixi r test` overstate run time. **Check:** time against
 `maturin develop --uv --release`, which `pixi r nb-execute` runs first.
 
-### L-04: A claim about 0.4.1 needs the 0.4.1 wheel
-
-The changelog describes a 0.4.1 bug in which rings at projected-CRS magnitudes lost
-vertices near the start, yet the 0.4.1 wheel on PyPI keeps them, including on the fix's
-regression input. **Check:** reproduce "0.4.1 did X" against the released wheel before
-writing it (Q-02).
-
-### L-05: ssort can move code between notebook cells
+### L-04: ssort can move code between notebook cells
 
 ssort sorts a jupytext script as one module, so a function in one cell that reads a
 variable from a later cell pulls that statement up. **Check:** ssort excludes
@@ -287,10 +284,3 @@ variable from a later cell pulls that statement up. **Check:** ssort excludes
 - **Status:** open; planned as its own pull request.
 - water-ogcapi builds with zensical and deploys to GitHub Pages. CatSmoothing builds
     with mkdocs and mkdocs-jupyter on Read the Docs.
-
-### Q-02: Does the ring-vertex changelog entry describe 0.4.1?
-
-- **Status:** open; settle before releasing 0.5.0.
-- The v0.4.1 source compares ring endpoints per coordinate with a relative tolerance of
-    1e-5, which at UTM magnitudes is 5 m in easting and 40 m in northing and should drop
-    a vertex that close to the start, but the 0.4.1 wheel keeps it (L-04).

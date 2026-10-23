@@ -108,7 +108,7 @@ typecheck, lint, and audit jobs; `release.yml` builds the wheels on every PR; an
 - Each example in `docs/examples/` is a notebook paired with a jupytext `py:percent`
     script; edit either and commit both, the notebook with its outputs. `pixi r nb-run`
     syncs them and executes the notebooks against a release build. ssort skips this
-    folder, since it can move code between cells (L-05).
+    folder, since it can move code between cells (L-04).
 - The docs render notebooks from their stored outputs and never execute them. Each
     notebook gets a card in `docs/examples/index.md` with a thumbnail in
     `docs/examples/images/`.
