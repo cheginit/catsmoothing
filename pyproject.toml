@@ -107,10 +107,8 @@ benchmark = { cmd = [ "pytest", "catsmoothing/tests", "--codspeed" ], depends-on
 
 [tool.pixi.feature.dev.tasks]
 changelog = "git cliff -c pyproject.toml --unreleased"
-# Prepends a release's notes to CHANGELOG.md, below its preamble.
-changelog-update = { cmd = "git cliff -c pyproject.toml --unreleased --tag {{ version }} --prepend CHANGELOG.md", args = [
-  { arg = "version" },
-] }
+# After a release, prepends its notes, tag summary included, to CHANGELOG.md below the preamble.
+changelog-update = "git cliff -c pyproject.toml --latest --prepend CHANGELOG.md"
 # Sync the py:percent scripts to their paired notebooks.
 nb-sync = "jupytext --sync docs/examples/*.py"
 # Execute every notebook in place against a release build, since one of them times it.
