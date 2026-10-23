@@ -79,8 +79,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     exactly two columns, nonfinite vertices, `alpha` or `gaussian_sigma`, explicit grids
     that are not strictly increasing, and a nonpositive `tolerance`.
 - Non-contiguous NumPy arrays (for example `d[::2]`) are accepted everywhere.
-- Repeated consecutive vertices are dropped before fitting unless an explicit `grid` is
-    given. They produced all-NaN output.
+- Repeated consecutive vertices are dropped before fitting whenever the grid is
+    generated (no explicit `grid`, or `alpha` overriding it). They produced all-NaN
+    output.
 - Closed curves decide whether the last vertex repeats the first with a tolerance
     relative to the ring's extent. The old test scaled with the coordinate values, so
     rings at projected-CRS magnitudes lost real vertices within tens of meters of the start.

@@ -894,3 +894,28 @@ fn test_last_vertex_is_returned_exactly() {
         assert_eq!(ends[1], ring[0]);
     }
 }
+
+#[test]
+fn test_alpha_overrides_grid_and_still_drops_repeats() {
+    let vertices = vec![[0.0, 0.0], [1.0, 0.0], [1.0, 0.0], [2.0, 0.0]];
+    let spline = fit(
+        vertices,
+        Some(vec![0.0, 1.0, 2.0, 3.0]),
+        Some(0.5),
+        BoundaryCondition::Natural,
+        None,
+    )
+    .unwrap();
+    assert_eq!(spline.grid(), &[0.0, 1.0, 2.0]);
+    let distances = spline.uniform_distances(5).unwrap();
+    assert!(distances.iter().all(|d| d.is_finite()));
+
+    let overflow = fit(
+        vec![[0.0, 0.0], [10.0, 0.0], [20.0, 0.0]],
+        None,
+        Some(400.0),
+        BoundaryCondition::Natural,
+        None,
+    );
+    assert_eq!(overflow.unwrap_err(), SplineError::InvalidGrid);
+}

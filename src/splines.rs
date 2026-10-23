@@ -304,9 +304,10 @@ impl CatmullRom {
             _ => {}
         }
 
-        // Repeated vertices would give zero grid steps; an explicit grid keeps them.
+        // Repeated vertices would give zero steps in a generated grid; an explicit grid that
+        // `alpha` does not override keeps them.
         let mut vertices = vertices;
-        if grid.is_none() {
+        if alpha.is_some() || grid.is_none() {
             vertices.dedup();
             if vertices.len() < 2 {
                 return Err(SplineError::TooFewVertices);
@@ -383,6 +384,10 @@ impl CatmullRom {
                 for pair in vertices.windows(2) {
                     total += (pair[1] - pair[0]).norm().powf(alpha);
                     grid.push(total);
+                }
+                // Huge `alpha` values can overflow the steps.
+                if !(total.is_finite() && grid.windows(2).all(|w| w[0] < w[1])) {
+                    return Err(SplineError::InvalidGrid);
                 }
                 Ok(grid)
             }
@@ -570,7 +575,7 @@ impl CatmullRom {
                 start += lengths[idx];
                 idx += 1;
             }
-            let local = (target - start).clamp(0.0, lengths[idx]);
+            let local = (target - start).max(0.0).min(lengths[idx]);
             let t = self.segments[idx].param_at_length(local, lengths[idx]);
             distances.push(self.knots[idx] + t * (self.knots[idx + 1] - self.knots[idx]));
         }
