@@ -38,6 +38,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     spline is about 6x faster, and smoothing 2000 lines of 100 vertices about 2x faster.
 - The Python bindings release the GIL while Rust computes, and
     `linestrings_tangent_angles` processes lines in parallel like `smooth_linestrings`.
+- `smooth_linestrings` and `linestrings_tangent_angles` pass all coordinates to Rust in
+    one array and build geometries in bulk; smoothing 10,000 lines of 100 vertices
+    takes 59 ms where it took 80 ms with per-line arrays.
 - Gaussian pre-smoothing extends open lines by point reflection through their end
     vertices, so evenly spaced straight runs stay in place; the old mirror reflection
     shifted vertices near the ends along the line. Closed rings wrap around, so the

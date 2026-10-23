@@ -5,7 +5,7 @@ use crate::{
     linestring, BoundaryCondition, CatmullRom, Continuity, LineToSmooth, Presmoothing, SigmaUnits,
     Spacing, SplineError, SplineOptions,
 };
-use numpy::ndarray::{Array2, ArrayView2};
+use numpy::ndarray::{Array2, ArrayView1, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -27,6 +27,29 @@ fn array2_to_vec(line: ArrayView2<f64>) -> PyResult<Vec<[f64; 2]>> {
         )));
     }
     Ok(line.outer_iter().map(|row| [row[0], row[1]]).collect())
+}
+
+// Results of all lines stacked into one array, with the number of rows per line.
+type Stacked<T> = (Py<T>, Py<PyArray1<i64>>);
+
+// Helper: split stacked (n, 2) coordinates into lines at `offsets`, which rise from 0 to n.
+fn split_lines(coords: ArrayView2<f64>, offsets: ArrayView1<i64>) -> PyResult<Vec<Vec<[f64; 2]>>> {
+    let points = array2_to_vec(coords)?;
+    let bounds = offsets
+        .iter()
+        .map(|&o| usize::try_from(o))
+        .collect::<Result<Vec<usize>, _>>()
+        .ok()
+        .filter(|b| {
+            b.first() == Some(&0)
+                && b.last() == Some(&points.len())
+                && b.windows(2).all(|w| w[0] <= w[1])
+        })
+        .ok_or_else(|| PyValueError::new_err("offsets must rise from 0 to the coordinate count"))?;
+    Ok(bounds
+        .windows(2)
+        .map(|w| points[w[0]..w[1]].to_vec())
+        .collect())
 }
 
 // Helper: one optional value per line from an optional array of any memory layout.
@@ -91,34 +114,34 @@ fn validate_array_length(arr_len: usize, expected: usize, name: &str) -> PyResul
 /// Python function: linestrings_tangent_angles
 ///
 /// Parameters:
-///   - vertices: list of NumPy arrays (each shape (n,2))
+///   - coords: all lines' coordinates stacked, shape (n, 2)
+///   - offsets: start of each line in `coords`, plus the total count (n_lines + 1 entries)
 ///   - gaussian_sigmas: optional list of Option<f64> (one per linestring)
 ///
 /// Returns:
-///   - list of 1D NumPy arrays of tangent angles.
+///   - tangent angles of all lines stacked, and the count per line.
 #[pyfunction(signature = (
-    vertices,
+    coords,
+    offsets,
     gaussian_sigmas=None,
     sigma_units="vertices",
     taubin_iterations=None
 ))]
 fn linestrings_tangent_angles(
     py: Python,
-    vertices: Vec<PyReadonlyArray2<f64>>,
+    coords: PyReadonlyArray2<f64>,
+    offsets: PyReadonlyArray1<i64>,
     gaussian_sigmas: Option<Vec<Option<f64>>>,
     sigma_units: &str,
     taubin_iterations: Option<i64>,
-) -> PyResult<Vec<Py<PyArray1<f64>>>> {
+) -> PyResult<Stacked<PyArray1<f64>>> {
     let units: SigmaUnits = sigma_units.parse()?;
-    let n_lines = vertices.len();
+    let lines_vec = split_lines(coords.as_array(), offsets.as_array())?;
+    let n_lines = lines_vec.len();
     let gs = gaussian_sigmas.unwrap_or_else(|| vec![None; n_lines]);
     let taubin = taubin_setting(taubin_iterations, gs.iter().any(Option::is_some))?;
     validate_array_length(gs.len(), n_lines, "gaussian_sigmas")?;
 
-    let lines_vec: Vec<Vec<[f64; 2]>> = vertices
-        .iter()
-        .map(|line_arr| array2_to_vec(line_arr.as_array()))
-        .collect::<PyResult<_>>()?;
     let angles = py
         .detach(|| {
             let presmoothing = gs
@@ -129,26 +152,30 @@ fn linestrings_tangent_angles(
         })
         .map_err(PyErr::from)?;
 
-    Ok(angles
-        .into_iter()
-        .map(|a| a.into_pyarray(py).unbind())
-        .collect())
+    let counts: Vec<i64> = angles.iter().map(|a| a.len() as i64).collect();
+    let flat: Vec<f64> = angles.into_iter().flatten().collect();
+    Ok((
+        flat.into_pyarray(py).unbind(),
+        counts.into_pyarray(py).unbind(),
+    ))
 }
 
 /// Python function: smooth_linestrings
 ///
 /// Parameters:
-///   - lines: list of NumPy arrays (each shape (n,2))
+///   - coords: all lines' coordinates stacked, shape (n, 2)
+///   - offsets: start of each line in `coords`, plus the total count (n_lines + 1 entries)
 ///   - distances: optional 1D NumPy array (one per linestring)
 ///   - n_pts: optional 1D NumPy array of usize (one per linestring)
 ///   - gaussian_sigmas: optional 1D NumPy array (one per linestring)
 ///   - bc_types: optional Vec<String> (one per linestring; "natural", "closed", or "clamped")
 ///
 /// Returns:
-///   - list of NumPy arrays (each shape (m,2))
+///   - smoothed coordinates of all lines stacked, shape (m, 2), and the count per line.
 #[pyfunction(
     signature = (
-        lines,
+        coords,
+        offsets,
         distances=None,
         n_pts=None,
         gaussian_sigmas=None,
@@ -160,7 +187,8 @@ fn linestrings_tangent_angles(
 )]
 fn smooth_linestrings(
     py: Python,
-    lines: Vec<PyReadonlyArray2<f64>>,
+    coords: PyReadonlyArray2<f64>,
+    offsets: PyReadonlyArray1<i64>,
     distances: Option<PyReadonlyArray1<f64>>,
     n_pts: Option<PyReadonlyArray1<i64>>,
     gaussian_sigmas: Option<PyReadonlyArray1<f64>>,
@@ -168,14 +196,11 @@ fn smooth_linestrings(
     sigma_units: &str,
     taubin_iterations: Option<i64>,
     continuity: &str,
-) -> PyResult<Vec<Py<PyArray2<f64>>>> {
+) -> PyResult<Stacked<PyArray2<f64>>> {
     let units: SigmaUnits = sigma_units.parse()?;
     let continuity: Continuity = continuity.parse()?;
-    let n_lines = lines.len();
-    let lines_vec: Vec<Vec<[f64; 2]>> = lines
-        .iter()
-        .map(|line_arr| array2_to_vec(line_arr.as_array()))
-        .collect::<PyResult<_>>()?;
+    let lines_vec = split_lines(coords.as_array(), offsets.as_array())?;
+    let n_lines = lines_vec.len();
     let ds = per_line(distances, n_lines, "distances")?;
     let n_pts_vec = per_line(n_pts, n_lines, "n_pts")?
         .into_iter()
@@ -222,10 +247,12 @@ fn smooth_linestrings(
         .detach(|| linestring::smooth_linestrings(jobs))
         .map_err(PyErr::from)?;
 
-    Ok(smoothed_vec
-        .into_iter()
-        .map(|line| points_to_pyarray(py, line))
-        .collect())
+    let counts: Vec<i64> = smoothed_vec.iter().map(|l| l.len() as i64).collect();
+    let flat: Vec<[f64; 2]> = smoothed_vec.into_iter().flatten().collect();
+    Ok((
+        points_to_pyarray(py, flat),
+        counts.into_pyarray(py).unbind(),
+    ))
 }
 
 /// Python class: CatmullRom
