@@ -43,3 +43,15 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: ${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}
+
+  rust:
+    name: rust fmt, clippy, and tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Check formatting
+      run: cargo fmt --check
+    - name: Lint
+      run: cargo clippy --features python --all-targets -- -D warnings
+    - name: Test
+      run: cargo test
