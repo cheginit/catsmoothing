@@ -136,19 +136,19 @@ fn linestrings_tangent_angles(
     taubin_iterations: Option<i64>,
 ) -> PyResult<Stacked<PyArray1<f64>>> {
     let units: SigmaUnits = sigma_units.parse()?;
-    let lines_vec = split_lines(coords.as_array(), offsets.as_array())?;
-    let n_lines = lines_vec.len();
-    let gs = gaussian_sigmas.unwrap_or_else(|| vec![None; n_lines]);
-    let taubin = taubin_setting(taubin_iterations, gs.iter().any(Option::is_some))?;
-    validate_array_length(gs.len(), n_lines, "gaussian_sigmas")?;
+    let line_vertices = split_lines(coords.as_array(), offsets.as_array())?;
+    let n_lines = line_vertices.len();
+    let sigmas = gaussian_sigmas.unwrap_or_else(|| vec![None; n_lines]);
+    let taubin = taubin_setting(taubin_iterations, sigmas.iter().any(Option::is_some))?;
+    validate_array_length(sigmas.len(), n_lines, "gaussian_sigmas")?;
 
     let angles = py
         .detach(|| {
-            let presmoothing = gs
+            let presmoothing = sigmas
                 .into_iter()
                 .map(|s| presmoothing_for(s, units, taubin))
                 .collect();
-            linestring::lines_tangents(lines_vec, presmoothing)
+            linestring::lines_tangents(line_vertices, presmoothing)
         })
         .map_err(PyErr::from)?;
 
@@ -199,10 +199,10 @@ fn smooth_linestrings(
 ) -> PyResult<Stacked<PyArray2<f64>>> {
     let units: SigmaUnits = sigma_units.parse()?;
     let continuity: Continuity = continuity.parse()?;
-    let lines_vec = split_lines(coords.as_array(), offsets.as_array())?;
-    let n_lines = lines_vec.len();
-    let ds = per_line(distances, n_lines, "distances")?;
-    let n_pts_vec = per_line(n_pts, n_lines, "n_pts")?
+    let line_vertices = split_lines(coords.as_array(), offsets.as_array())?;
+    let n_lines = line_vertices.len();
+    let max_distances = per_line(distances, n_lines, "distances")?;
+    let point_counts = per_line(n_pts, n_lines, "n_pts")?
         .into_iter()
         .map(|n| {
             n.map(usize::try_from)
@@ -210,10 +210,10 @@ fn smooth_linestrings(
                 .map_err(|_| PyErr::from(SplineError::InvalidPointCount))
         })
         .collect::<PyResult<Vec<_>>>()?;
-    let gs = per_line(gaussian_sigmas, n_lines, "gaussian_sigmas")?;
-    let taubin = taubin_setting(taubin_iterations, gs.iter().any(Option::is_some))?;
+    let sigmas = per_line(gaussian_sigmas, n_lines, "gaussian_sigmas")?;
+    let taubin = taubin_setting(taubin_iterations, sigmas.iter().any(Option::is_some))?;
 
-    let bc_conv: Vec<Option<BoundaryCondition>> = if let Some(bcs) = bc_types {
+    let bc_per_line: Vec<Option<BoundaryCondition>> = if let Some(bcs) = bc_types {
         validate_array_length(bcs.len(), n_lines, "bc_types")?;
         bcs.iter()
             .map(|s| s.parse().map(Some))
@@ -223,16 +223,16 @@ fn smooth_linestrings(
     };
 
     let mut jobs = Vec::with_capacity(n_lines);
-    for (i, vertices) in lines_vec.into_iter().enumerate() {
-        let spacing = match (n_pts_vec[i], ds[i]) {
+    for (i, vertices) in line_vertices.into_iter().enumerate() {
+        let spacing = match (point_counts[i], max_distances[i]) {
             (Some(n), _) => Spacing::Count(n),
             (None, Some(d)) => Spacing::MaxDistance(d),
             (None, None) => return Err(SplineError::InvalidSmoothingParameters.into()),
         };
         let options = SplineOptions {
             alpha: Some(0.5),
-            bc_type: bc_conv[i].unwrap_or(BoundaryCondition::Clamped),
-            presmoothing: presmoothing_for(gs[i], units, taubin),
+            bc_type: bc_per_line[i].unwrap_or(BoundaryCondition::Clamped),
+            presmoothing: presmoothing_for(sigmas[i], units, taubin),
             continuity,
             ..SplineOptions::default()
         };
@@ -294,19 +294,19 @@ impl CatmullRomWrapper {
         let units: SigmaUnits = sigma_units.parse()?;
         let continuity: Continuity = continuity.parse()?;
         let taubin = taubin_setting(taubin_iterations, gaussian_sigma.is_some())?;
-        let verts: Vec<[f64; 2]> = array2_to_vec(vertices.as_array())?;
-        let grid_opt: Option<Vec<f64>> = grid.map(|g| g.as_array().to_vec());
+        let vertex_list: Vec<[f64; 2]> = array2_to_vec(vertices.as_array())?;
+        let grid_values: Option<Vec<f64>> = grid.map(|g| g.as_array().to_vec());
         let bc: BoundaryCondition = bc_type.parse()?;
         let spline = py
             .detach(|| {
                 let options = SplineOptions {
-                    grid: grid_opt,
+                    grid: grid_values,
                     alpha,
                     bc_type: bc,
                     presmoothing: presmoothing_for(gaussian_sigma, units, taubin),
                     continuity,
                 };
-                CatmullRom::new(verts, options)
+                CatmullRom::new(vertex_list, options)
             })
             .map_err(PyErr::from)?;
         Ok(CatmullRomWrapper { inner: spline })
