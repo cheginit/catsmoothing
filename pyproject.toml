@@ -33,6 +33,7 @@ urls.Issues = "https://github.com/cheginit/catsmoothing/issues"
 
 [dependency-groups]
 dev = [
+  "git-cliff",
   "ipykernel",
   "ipywidgets",
   "matplotlib",
@@ -101,6 +102,13 @@ release = { cmd = "grep -q '^version = \"{{ version | replace(\"v\", \"\") }}\"$
 
 [tool.pixi.feature.benchmark.tasks]
 benchmark = { cmd = [ "pytest", "catsmoothing/tests", "--codspeed" ], depends-on = [ "preinstall" ] }
+
+[tool.pixi.feature.dev.tasks]
+changelog = "git cliff -c pyproject.toml --unreleased"
+# Prepends a release's notes to CHANGELOG.md, below its preamble.
+changelog-update = { cmd = "git cliff -c pyproject.toml --unreleased --tag {{ version }} --prepend CHANGELOG.md", args = [
+  { arg = "version" },
+] }
 
 [tool.pixi.feature.docs.tasks]
 build-docs = "mkdocs build --strict"
@@ -226,7 +234,7 @@ min_confidence = 80
 
 [tool.pyproject-fmt]
 max_supported_python = "3.15"
-expand_tables = [ "tool.pixi" ]
+expand_tables = [ "tool.git-cliff", "tool.pixi" ]
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -262,3 +270,61 @@ paths.source = [ "catsmoothing", "*/site-packages" ]
 report.omit = [ "**/__init__.py" ]
 report.exclude_lines = [ "if TYPE_CHECKING:" ]
 report.ignore_errors = true
+
+[tool.git-cliff]
+[tool.git-cliff.changelog]
+header = """
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
+this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+"""
+# The tag message is the release summary; tags whose message only repeats the version skip it.
+body = '''{%- macro remote_url() -%}
+  https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}
+{%- endmacro -%}
+{% if version -%}
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+## [Unreleased]
+{% endif -%}
+{% if message and message | trim != version %}
+{{ message | trim }}
+{% endif %}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{%- for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | split(pat="\n") | first | upper_first | trim }}{% if commit.breaking %} (**breaking**){% endif %}{% if commit.remote.pr_number %} in [#{{ commit.remote.pr_number }}]({{ self::remote_url() }}/pull/{{ commit.remote.pr_number }}){% else %} ([{{ commit.id | truncate(length=7, end="") }}]({{ self::remote_url() }}/commit/{{ commit.id }})){% endif %}
+{%- endfor %}
+{% endfor %}
+'''
+trim = true
+
+[tool.git-cliff.git]
+conventional_commits = true
+filter_unconventional = true
+commit_parsers = [
+  { message = "^feat", group = "Added" },
+  { message = "^fix", group = "Fixed" },
+  { message = "^perf", group = "Changed" },
+  { message = "^refactor", group = "Changed" },
+  { message = "^revert", group = "Fixed" },
+  { message = "^style", group = "Changed" },
+  { message = "^docs", skip = true },
+  { message = "^test", skip = true },
+  { message = "^chore", skip = true },
+  { message = "^ci", skip = true },
+  { message = "^build", skip = true },
+  { message = "^Merge", skip = true },
+]
+protect_breaking_commits = true
+# Only final versions count, so a final's notes start at the previous final, past any rc.
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+sort_commits = "newest"
+
+[tool.git-cliff.remote]
+github.owner = "cheginit"
+github.repo = "catsmoothing"
