@@ -34,6 +34,7 @@ def linestrings_tangent_angles(
     gaussian_sigmas: FloatArray | None = None,
     sigma_units: Literal["vertices", "length"] = "vertices",
     taubin_iterations: int | None = None,
+    closed: NDArray[np.bool_] | None = None,
 ) -> tuple[FloatArray, IntArray]: ...
 
 def smooth_linestrings(

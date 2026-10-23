@@ -1,5 +1,5 @@
 use crate::error::SplineError;
-use crate::splines::{CatmullRom, Presmoothing, SplineOptions};
+use crate::splines::{BoundaryCondition, CatmullRom, Presmoothing, SplineOptions};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 /// Spacing of the points a smoothed line is resampled at.
@@ -20,7 +20,7 @@ pub struct LineToSmooth {
 }
 
 /// Tangent angles in radians (`atan2(dy, dx)`) at each vertex of a centripetal spline
-/// through `line`.
+/// through `line`, with natural ends, or periodic when `closed`.
 ///
 /// # Errors
 ///
@@ -28,9 +28,16 @@ pub struct LineToSmooth {
 pub fn line_tangents(
     line: Vec<[f64; 2]>,
     presmoothing: Option<Presmoothing>,
+    closed: bool,
 ) -> Result<Vec<f64>, SplineError> {
+    let bc_type = if closed {
+        BoundaryCondition::Closed
+    } else {
+        BoundaryCondition::Natural
+    };
     let options = SplineOptions {
         alpha: Some(0.5),
+        bc_type,
         presmoothing,
         ..SplineOptions::default()
     };
@@ -50,14 +57,16 @@ pub fn line_tangents(
 pub fn lines_tangents(
     lines: Vec<Vec<[f64; 2]>>,
     presmoothing: Vec<Option<Presmoothing>>,
+    closed: Vec<bool>,
 ) -> Result<Vec<Vec<f64>>, SplineError> {
-    if lines.len() != presmoothing.len() {
+    if lines.len() != presmoothing.len() || lines.len() != closed.len() {
         return Err(SplineError::MismatchedInputLengths);
     }
     lines
         .into_par_iter()
         .zip(presmoothing)
-        .map(|(vertices, presmoothing)| line_tangents(vertices, presmoothing))
+        .zip(closed)
+        .map(|((vertices, presmoothing), closed)| line_tangents(vertices, presmoothing, closed))
         .collect()
 }
 

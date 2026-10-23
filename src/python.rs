@@ -117,6 +117,7 @@ fn validate_array_length(arr_len: usize, expected: usize, name: &str) -> PyResul
 ///   - coords: all lines' coordinates stacked, shape (n, 2)
 ///   - offsets: start of each line in `coords`, plus the total count (n_lines + 1 entries)
 ///   - gaussian_sigmas: optional 1D NumPy array (one per linestring)
+///   - closed: optional 1D boolean array; closed lines get periodic splines
 ///
 /// Returns:
 ///   - tangent angles of all lines stacked, and the count per line.
@@ -125,7 +126,8 @@ fn validate_array_length(arr_len: usize, expected: usize, name: &str) -> PyResul
     offsets,
     gaussian_sigmas=None,
     sigma_units="vertices",
-    taubin_iterations=None
+    taubin_iterations=None,
+    closed=None
 ))]
 fn linestrings_tangent_angles(
     py: Python,
@@ -134,12 +136,17 @@ fn linestrings_tangent_angles(
     gaussian_sigmas: Option<PyReadonlyArray1<f64>>,
     sigma_units: &str,
     taubin_iterations: Option<i64>,
+    closed: Option<PyReadonlyArray1<bool>>,
 ) -> PyResult<Stacked<PyArray1<f64>>> {
     let units: SigmaUnits = sigma_units.parse()?;
     let line_vertices = split_lines(coords.as_array(), offsets.as_array())?;
     let n_lines = line_vertices.len();
     let sigmas = per_line(gaussian_sigmas, n_lines, "gaussian_sigmas")?;
     let taubin = taubin_setting(taubin_iterations, sigmas.iter().any(Option::is_some))?;
+    let closed: Vec<bool> = per_line(closed, n_lines, "closed")?
+        .into_iter()
+        .map(|c| c.unwrap_or(false))
+        .collect();
 
     let angles = py
         .detach(|| {
@@ -147,7 +154,7 @@ fn linestrings_tangent_angles(
                 .into_iter()
                 .map(|s| presmoothing_for(s, units, taubin))
                 .collect();
-            linestring::lines_tangents(line_vertices, presmoothing)
+            linestring::lines_tangents(line_vertices, presmoothing, closed)
         })
         .map_err(PyErr::from)?;
 

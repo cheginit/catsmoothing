@@ -182,7 +182,7 @@ fn test_uniform_distances() {
 fn test_compute_tangent_angles() {
     let vertices = vec![[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]];
 
-    let angles = lines_tangents(vec![vertices.clone()], vec![None]).unwrap();
+    let angles = lines_tangents(vec![vertices.clone()], vec![None], vec![false]).unwrap();
 
     // For this case, we expect specific angles based on the Catmull-Rom spline properties
     // First angle should be ~0.983 radians (~56.3° upward)
@@ -199,6 +199,7 @@ fn test_compute_tangent_angles() {
             sigma: 0.5,
             units: SigmaUnits::Vertices,
         }),
+        false,
     )
     .unwrap();
     assert_eq!(smoothed_angles.len(), angles[0].len());
@@ -208,7 +209,7 @@ fn test_compute_tangent_angles() {
 fn test_invalid_input() {
     let vertices = vec![[0.0, 0.0]]; // Only one vertex
     assert!(matches!(
-        line_tangents(vertices, None),
+        line_tangents(vertices, None, false),
         Err(SplineError::TooFewVertices)
     ));
 }

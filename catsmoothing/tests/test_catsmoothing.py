@@ -353,6 +353,17 @@ def test_huge_sigma_is_bounded(units: Literal["vertices", "length"]) -> None:
         cs.smooth_linestrings(ring, n_pts=9, gaussian_sigmas=1e9, sigma_units=units, bc_types="closed")
 
 
+def test_ring_tangent_angles_are_periodic() -> None:
+    coords = [(0, 0), (1, 0), (1, 1), (0, 1)]
+    angles = cs.linestrings_tangent_angles(shapely.LinearRing(coords), gaussian_sigmas=1)
+    assert angles[0] == pytest.approx(angles[-1])
+    # Starting the ring at another vertex rotates the angles.
+    rotated = cs.linestrings_tangent_angles(
+        shapely.LinearRing(coords[1:] + coords[:1]), gaussian_sigmas=1
+    )
+    assert_close(np.roll(angles[:-1], -1), rotated[:-1], 1e-9)
+
+
 def test_repeated_vertices() -> None:
     line = shapely.LineString([(0, 0), (1, 1), (1, 1), (2, 0)])
     result = cs.smooth_linestrings(line, n_pts=5)
