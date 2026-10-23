@@ -146,7 +146,8 @@ class CatmullRom:
         self.taubin_iterations = taubin_iterations
         self.continuity = continuity
         if self.bc_type not in ("natural", "closed", "clamped"):
-            raise ValueError("`bc_type` must be 'natural', 'closed', 'clamped'.")
+            msg = "`bc_type` must be 'natural', 'closed', 'clamped'."
+            raise ValueError(msg)
         self._spline = CatmullRomWrapper(
             vertices,
             grid,
@@ -177,7 +178,8 @@ class CatmullRom:
             Value (or n-th derivative) at given parameter value(s).
         """
         if n not in (0, 1, 2):
-            raise ValueError("`n` must be 0, 1, or 2 since Catmull-Rom spline is cubic.")
+            msg = "`n` must be 0, 1, or 2 since Catmull-Rom spline is cubic."
+            raise ValueError(msg)
         results = self._spline.evaluate(_to_array(distances, "f8"), int(n))  # pyright: ignore[reportArgumentType]
         return np.asarray(results)
 
@@ -207,17 +209,17 @@ class CatmullRom:
     def __setattr__(self, key: str, value: Any):
         """Prevent modification of attributes after initialization."""
         if getattr(self, "_is_frozen", False):
-            raise AttributeError(
-                f"Cannot modify attribute '{key}'. The object is frozen. Reinstantiate the class."
-            )
+            msg = f"Cannot modify attribute '{key}'. The object is frozen. Reinstantiate the class."
+            raise AttributeError(msg)
         object.__setattr__(self, key, value)
 
     def __delattr__(self, item: str):
         """Prevent modification of attributes after initialization."""
         if getattr(self, "_is_frozen", False):
-            raise AttributeError(
+            msg = (
                 f"Cannot delete attribute '{item}'. The object is frozen. Reinstantiate the class."
             )
+            raise AttributeError(msg)
         object.__delattr__(self, item)
 
     def __repr__(self) -> str:
@@ -335,7 +337,8 @@ def smooth_linestrings(
     lines = np.atleast_1d(lines)  # pyright: ignore[reportCallIssue,reportArgumentType]
     geo_types = shapely.get_type_id(lines)
     if not np.all(np.isin(geo_types, [1, 2])):
-        raise TypeError("`lines` must be a list LineString or LinearRing")
+        msg = "`lines` must be a list LineString or LinearRing"
+        raise TypeError(msg)
 
     bc_list: list[str] | None = None
     if bc_types is not None:
@@ -421,7 +424,8 @@ def linestrings_tangent_angles(
     lines = np.atleast_1d(lines)  # pyright: ignore[reportCallIssue,reportArgumentType]
     geo_types = shapely.get_type_id(lines)
     if np.any(~np.isin(geo_types, [1, 2])):
-        raise TypeError("`lines` must be a list shapely.LineString")
+        msg = "`lines` must be a list shapely.LineString"
+        raise TypeError(msg)
 
     coords, offsets = _stack(lines)  # pyright: ignore[reportArgumentType]
     flat, counts = _tangent_angles_rs(
@@ -531,7 +535,8 @@ def smooth_polygon[PolygonType: (Polygon, MultiPolygon)](
         Smoothed (Multi)Polygon.
     """
     if shapely.get_type_id(polygon) not in (3, 6):
-        raise TypeError("`polygon` must be a shapely.Polygon or shapely.MultiPolygon")
+        msg = "`polygon` must be a shapely.Polygon or shapely.MultiPolygon"
+        raise TypeError(msg)
 
     _warn_ignored(tolerance, max_iterations)
     if isinstance(polygon, shapely.Polygon):

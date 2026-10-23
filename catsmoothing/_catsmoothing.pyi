@@ -1,13 +1,10 @@
-from __future__ import annotations
+from typing import Literal
 
-from typing import TYPE_CHECKING, Literal
+import numpy as np
+from numpy.typing import NDArray
 
-if TYPE_CHECKING:
-    import numpy as np
-    from numpy.typing import NDArray
-
-    FloatArray = NDArray[np.float64]
-    IntArray = NDArray[np.int64]
+type FloatArray = NDArray[np.float64]
+type IntArray = NDArray[np.int64]
 
 __version__: str
 
