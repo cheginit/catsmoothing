@@ -115,3 +115,17 @@ junit.xml
 .codspeed
 target
 *.so
+
+# AI agents. AGENTS.md and .agents/skills/ are the shared files; .claude/skills links to
+# the latter and .claude/rules holds Claude Code's path-scoped pointers. The negations
+# override a global ignore of these directories.
+!/.agents/
+/.agents/*
+!/.agents/skills
+!/.claude/
+/.claude/*
+!/.claude/skills
+!/.claude/rules
+# Claude Code skips AGENTS.md when a CLAUDE.md exists, so keep personal ones out.
+CLAUDE.md
+CLAUDE.local.md
