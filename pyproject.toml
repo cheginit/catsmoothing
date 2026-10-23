@@ -28,6 +28,7 @@ classifiers = [
 dependencies = [ "numpy>=2", "shapely>=2" ]
 urls.Changelog = "https://github.com/cheginit/catsmoothing/blob/main/CHANGELOG.md"
 urls.CI = "https://github.com/cheginit/catsmoothing/actions"
+urls.Documentation = "https://cheginit.github.io/catsmoothing/"
 urls.Homepage = "https://github.com/cheginit/catsmoothing"
 urls.Issues = "https://github.com/cheginit/catsmoothing/issues"
 
@@ -49,11 +50,9 @@ test = [
   "pytest-sugar",
 ]
 docs = [
-  "black",
-  "mkdocs",
-  "mkdocs-jupyter",
-  "mkdocs-materialx",
   "mkdocstrings-python",
+  "nbconvert",
+  "zensical",
 ]
 benchmark = [
   "pytest-codspeed",
@@ -122,8 +121,9 @@ nb-run = { depends-on = [ "nb-sync", "nb-execute" ] }
 nb-pair = "jupytext --set-formats 'ipynb,py:percent' docs/examples/*.ipynb"
 
 [tool.pixi.feature.docs.tasks]
-build-docs = "mkdocs build --strict"
-docs = { cmd = [ "mkdocs", "serve" ], depends-on = [ "preinstall", "build-docs" ] }
+notebooks = "python scripts/convert_notebooks.py"
+docs = { cmd = "zensical build --clean --strict", depends-on = [ "notebooks" ] }
+docs-serve = { cmd = "zensical serve", depends-on = [ "notebooks" ] }
 
 [tool.pixi.feature.lint.dependencies]
 cargo-audit = "*"
@@ -171,7 +171,7 @@ test315 = { features = [ "test", "py315" ] }
 benchmark = { features = [ "benchmark", "py314" ] }
 typecheck = { features = [ "typecheck", "py314" ] }
 lint = { features = [ "lint", "py314" ], no-default-feature = true }
-docs = { features = [ "docs", "py314" ] }
+docs = { features = [ "docs", "py314" ], no-default-feature = true }
 
 [tool.ruff]
 target-version = "py313"
