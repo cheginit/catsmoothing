@@ -20,7 +20,7 @@ rayon = "1"
 ndarray = { version = "0.17", features = ["rayon"] }
 
 [dependencies.numpy]
-version = "0.28"
+version = "0.30"
 optional = true
 
 [dev-dependencies]
@@ -29,7 +29,7 @@ rand = { version = "0.10", features = ["std"] }
 rand_distr = "0.6"
 
 [dependencies.pyo3]
-version = "0.28"
+version = "0.30"
 features = ["extension-module", "multiple-pymethods"]
 optional = true
 
