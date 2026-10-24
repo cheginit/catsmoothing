@@ -7,6 +7,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.5.0] - 2026-10-24
 
+Smoothed lines and polygons now get points spaced at equal arc length, and three options
+join the Gaussian filter: a sigma measured along the line (`sigma_units="length"`),
+Taubin smoothing (`taubin_iterations`), and curvature-continuous curves
+(`continuity="g2"` or `"c2"`). Smoothing 10,000 lines runs about 8 times faster,
+smoothed rings close exactly, and bad input raises `ValueError` where 0.4.1 panicked or
+returned NaN. Upgrading needs Python 3.13 or newer, and smoothed coordinates differ from
+0.4.1: `distances` now caps the gap between points in coordinate units,
+`CatmullRom.evaluate` returns derivatives with respect to the curve parameter, and
+vertex arrays must have exactly two columns. `tolerance` and `max_iterations` are
+ignored, raise a `DeprecationWarning`, and must be passed by keyword.
+
 ### Added
 
 - `sigma_units="length"` measures the Gaussian sigma in coordinate length along the
