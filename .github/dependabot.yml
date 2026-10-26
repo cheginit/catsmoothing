@@ -1,8 +1,7 @@
+# Keeps the SHA-pinned actions current; the comment after each pin gets bumped too.
 version: 2
 updates:
 - package-ecosystem: github-actions
   directory: /
   schedule:
-    interval: daily
-  commit-message:
-    prefix: 'BOT: [skip ci] '
+    interval: weekly
