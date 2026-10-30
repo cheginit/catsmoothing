@@ -407,7 +407,13 @@ impl CatmullRom {
                 let mut total = 0.0;
                 grid.push(total);
                 for pair in vertices.windows(2) {
-                    total += (pair[1] - pair[0]).norm().powf(alpha);
+                    let chord = (pair[1] - pair[0]).norm();
+                    // sqrt is much cheaper than powf, and centripetal is the default (D-02).
+                    total += if alpha == 0.5 {
+                        chord.sqrt()
+                    } else {
+                        chord.powf(alpha)
+                    };
                     grid.push(total);
                 }
                 // Huge `alpha` values can overflow the steps.
