@@ -33,14 +33,3 @@ jobs:
         mode: simulation
         token: ${{ secrets.CODSPEED_TOKEN }}
         run: pixi r benchmark
-    - name: Show toolchain and symbols of the profiled extension
-      if: always()
-      run: |
-        so=$(ls catsmoothing/_catsmoothing*.so)
-        rustc -V
-        sha256sum "$so"
-        readelf -p .comment "$so"
-        readelf -S -W "$so" | grep -E '\.(symtab|dynsym|debug_info|debug_line)'
-        echo "crate symbols in .symtab: $(nm "$so" | grep -c catsmoothing)"
-        nm "$so" | grep catsmoothing | head -5
-        nm -C "$so" | grep catsmoothing | head -5
