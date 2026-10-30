@@ -546,7 +546,7 @@ impl CatmullRom {
             return Err(SplineError::UnsupportedDerivativeOrder);
         }
         let point = |&distance: &f64| self.evaluate_one(distance, n);
-        if distances.len() < PARALLEL_MIN_POINTS {
+        if distances.len() < PARALLEL_MIN_POINTS || utils::single_thread() {
             Ok(distances.iter().map(point).collect())
         } else {
             Ok(distances.par_iter().map(point).collect())

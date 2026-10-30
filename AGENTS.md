@@ -39,7 +39,7 @@ One-line summaries of the decisions any code change can break. The IDs point int
 - Continuity splits keep every vertex and its tangent (D-12).
 - The last point of a curve is its last vertex, so rings close exactly (D-13).
 - Batch functions release the GIL, pass coordinates in one stacked array, and use
-    Rayon's global pool (D-14).
+    Rayon's global pool, running serially when it has one thread (D-14).
 - A public argument is removed only after a release in which passing it raises a
     `DeprecationWarning` (D-06).
 - Rust follows the Google Rust style guide: the clippy lints in `Cargo.toml` plus

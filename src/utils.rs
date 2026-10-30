@@ -15,3 +15,9 @@ pub(crate) fn ends_coincide(vertices: &[[f64; 2]]) -> bool {
     let extent = (max[0] - min[0]).hypot(max[1] - min[1]);
     (last[0] - first[0]).hypot(last[1] - first[1]) <= RELATIVE_TOLERANCE * extent
 }
+
+/// Whether Rayon's pool has one thread, so parallel iteration would only hand the work to
+/// that thread and wait for it.
+pub(crate) fn single_thread() -> bool {
+    rayon::current_num_threads() == 1
+}
