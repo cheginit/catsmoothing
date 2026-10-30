@@ -271,6 +271,20 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
     once the repository's Pages source is GitHub Actions, and the Read the Docs project
     has to be retired by hand.
 
+### D-25: Release builds strip through the Cargo profile
+
+- **Status:** accepted (2026-10-30).
+- **Decision:** `[profile.release] strip = true` in `Cargo.toml` strips the extension,
+    and `[tool.maturin]` sets no `strip`. The CodSpeed job sets
+    `CARGO_PROFILE_RELEASE_STRIP=false`.
+- **Why:** A stripped extension shows every Rust frame in CodSpeed's flamegraphs as
+    `Unknown symbol`. maturin's `strip` passes `-C strip=symbols` to rustc, which
+    overrides the Cargo profile, so no job could keep symbols. The x86_64 CPython 3.13
+    wheel's `.so` stays 780,912 bytes either way.
+- **Rejected:** `CARGO_PROFILE_RELEASE_DEBUG=true` and `-Clinker-features=-lld` in the
+    CodSpeed job (PR #59): maturin stripped both builds, so the profiled `.so` had no
+    `.symtab`.
+
 ## Lessons
 
 ### L-01: A probe of the released wheel can import the checkout
@@ -287,11 +301,12 @@ mdformat turned the YAML frontmatter of a skill and a Claude rule into a heading
 list, and both silently stop loading that way. **Check:** `mdformat-frontmatter` is in
 `.pre-commit-config.yaml`; re-parse frontmatter after any automated rewrite.
 
-### L-03: The default build is a debug build
+### L-03: `maturin develop` builds the profile `[tool.maturin]` names
 
-`preinstall` runs `maturin develop --uv`, which builds without optimizations, so timings
-taken after `pixi r test` overstate run time. **Check:** time against
-`maturin develop --uv --release`, which `pixi r nb-execute` runs first.
+`preinstall` runs `maturin develop --uv`, and `profile = "release"` under
+`[tool.maturin]` makes that an optimized build. This entry first called it a debug
+build, which no commit since April 2025 has produced. **Check:** the build log's
+`Finished` line names the profile.
 
 ### L-04: ssort can move code between notebook cells
 

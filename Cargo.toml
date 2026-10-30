@@ -36,6 +36,11 @@ optional = true
 default = []
 python = ["pyo3", "numpy"]
 
+# Strip here, not in [tool.maturin], so CodSpeed can keep symbols with
+# CARGO_PROFILE_RELEASE_STRIP=false (D-25).
+[profile.release]
+strip = true
+
 # Each lint enforces a rule of the Google Rust style guide; .agents/skills/rust-style holds
 # the rules no lint checks. clippy.toml configures the test exemptions.
 [lints.clippy]
