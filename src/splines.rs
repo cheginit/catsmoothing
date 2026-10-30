@@ -574,11 +574,11 @@ impl CatmullRom {
     /// speeds to overflow.
     #[must_use]
     pub fn length(&self) -> f64 {
-        self.arc_table().iter().map(|piece| piece.length).sum()
+        self.arc_table().length
     }
 
     /// Converged quadrature pieces of every segment, in order.
-    fn arc_table(&self) -> Vec<ArcPiece> {
+    pub(crate) fn arc_table(&self) -> ArcTable {
         let mut table = Vec::with_capacity(2 * self.segments.len());
         let mut pieces = Vec::new();
         for (segment, s) in self.segments.iter().enumerate() {
@@ -591,7 +591,11 @@ impl CatmullRom {
                 length,
             }));
         }
-        table
+        let length = table.iter().map(|piece| piece.length).sum();
+        ArcTable {
+            pieces: table,
+            length,
+        }
     }
 
     /// Returns `n_pts` grid parameters whose evaluated points are evenly spaced by arc length,
@@ -601,6 +605,15 @@ impl CatmullRom {
     ///
     /// Fails when the curve length is not finite or the output cannot be allocated.
     pub fn uniform_distances(&self, n_pts: usize) -> Result<Vec<f64>, SplineError> {
+        self.uniform_distances_along(&self.arc_table(), n_pts)
+    }
+
+    /// [`Self::uniform_distances`] with a table from [`Self::arc_table`] of this curve.
+    pub(crate) fn uniform_distances_along(
+        &self,
+        table: &ArcTable,
+        n_pts: usize,
+    ) -> Result<Vec<f64>, SplineError> {
         if n_pts < 2 {
             return Ok(vec![self.grid[0]]);
         }
@@ -609,8 +622,7 @@ impl CatmullRom {
             .try_reserve_exact(n_pts)
             .map_err(|_| SplineError::TooManyPoints)?;
 
-        let table = self.arc_table();
-        let total: f64 = table.iter().map(|piece| piece.length).sum();
+        let (pieces, total) = (&table.pieces, table.length);
         if !total.is_finite() {
             return Err(SplineError::NonFiniteLength);
         }
@@ -618,8 +630,8 @@ impl CatmullRom {
         let (mut idx, mut start) = (0, 0.0);
         for k in 0..n_pts {
             let target = total * k as f64 / (n_pts - 1) as f64;
-            while idx + 1 < table.len() && start + table[idx].length < target {
-                start += table[idx].length;
+            while idx + 1 < pieces.len() && start + pieces[idx].length < target {
+                start += pieces[idx].length;
                 idx += 1;
             }
             let ArcPiece {
@@ -627,7 +639,7 @@ impl CatmullRom {
                 t0,
                 t1,
                 length,
-            } = table[idx];
+            } = pieces[idx];
             let local = (target - start).max(0.0).min(length);
             let t = self.segments[segment].param_at_length(t0, t1, length, local);
             let (k0, k1) = (self.knots[segment], self.knots[segment + 1]);
@@ -637,6 +649,14 @@ impl CatmullRom {
         distances[n_pts - 1] = self.grid[self.grid.len() - 1];
         Ok(distances)
     }
+}
+
+/// Converged quadrature pieces of a curve and their summed length, which is not finite when
+/// squared speeds overflow.
+#[derive(Debug)]
+pub(crate) struct ArcTable {
+    pieces: Vec<ArcPiece>,
+    pub(crate) length: f64,
 }
 
 /// Part of a segment's parameter range with its arc length.
