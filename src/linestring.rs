@@ -1,5 +1,6 @@
 use crate::error::SplineError;
 use crate::splines::{BoundaryCondition, CatmullRom, Presmoothing, SplineOptions};
+use crate::utils;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 /// Spacing of the points a smoothed line is resampled at.
@@ -62,11 +63,21 @@ pub fn lines_tangents(
     if lines.len() != presmoothing.len() || lines.len() != closed.len() {
         return Err(SplineError::MismatchedInputLengths);
     }
+    let tangents =
+        |((vertices, presmoothing), closed)| line_tangents(vertices, presmoothing, closed);
+    if utils::single_thread() {
+        return lines
+            .into_iter()
+            .zip(presmoothing)
+            .zip(closed)
+            .map(tangents)
+            .collect();
+    }
     lines
         .into_par_iter()
         .zip(presmoothing)
         .zip(closed)
-        .map(|((vertices, presmoothing), closed)| line_tangents(vertices, presmoothing, closed))
+        .map(tangents)
         .collect()
 }
 
@@ -110,8 +121,9 @@ pub fn smooth_linestring(
 ///
 /// Fails when any line fails.
 pub fn smooth_linestrings(lines: Vec<LineToSmooth>) -> Result<Vec<Vec<[f64; 2]>>, SplineError> {
-    lines
-        .into_par_iter()
-        .map(|line| smooth_linestring(line.vertices, line.spacing, line.options))
-        .collect()
+    let smooth = |line: LineToSmooth| smooth_linestring(line.vertices, line.spacing, line.options);
+    if utils::single_thread() {
+        return lines.into_iter().map(smooth).collect();
+    }
+    lines.into_par_iter().map(smooth).collect()
 }

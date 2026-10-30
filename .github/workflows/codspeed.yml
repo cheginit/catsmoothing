@@ -29,6 +29,8 @@ jobs:
       env:
         # Keep the symbol table so flamegraphs name the Rust frames (D-25).
         CARGO_PROFILE_RELEASE_STRIP: false
+        # One thread runs batches serially, so simulation sees no futex waits (D-14).
+        RAYON_NUM_THREADS: 1
       with:
         mode: simulation
         token: ${{ secrets.CODSPEED_TOKEN }}
