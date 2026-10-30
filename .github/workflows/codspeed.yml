@@ -33,3 +33,8 @@ jobs:
         mode: simulation
         token: ${{ secrets.CODSPEED_TOKEN }}
         run: pixi r benchmark
+    - name: Show toolchain and linker
+      if: always()
+      run: |
+        rustc -V
+        readelf -p .comment catsmoothing/_catsmoothing*.so
