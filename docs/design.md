@@ -278,8 +278,8 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
     and `[tool.maturin]` sets no `strip`. The CodSpeed job sets
     `CARGO_PROFILE_RELEASE_STRIP=false`.
 - **Why:** A stripped extension shows every Rust frame in CodSpeed's flamegraphs as
-    `Unknown symbol`. maturin's `strip` applies after Cargo builds and has only a
-    `--strip` flag to turn it on, so no job could opt out. The x86_64 CPython 3.13
+    `Unknown symbol`. maturin's `strip` passes `-C strip=symbols` to rustc, which
+    overrides the Cargo profile, so no job could keep symbols. The x86_64 CPython 3.13
     wheel's `.so` stays 780,912 bytes either way.
 - **Rejected:** `CARGO_PROFILE_RELEASE_DEBUG=true` and `-Clinker-features=-lld` in the
     CodSpeed job (PR #59): maturin stripped both builds, so the profiled `.so` had no
