@@ -301,11 +301,12 @@ mdformat turned the YAML frontmatter of a skill and a Claude rule into a heading
 list, and both silently stop loading that way. **Check:** `mdformat-frontmatter` is in
 `.pre-commit-config.yaml`; re-parse frontmatter after any automated rewrite.
 
-### L-03: The default build is a debug build
+### L-03: `maturin develop` builds the profile `[tool.maturin]` names
 
-`preinstall` runs `maturin develop --uv`, which builds without optimizations, so timings
-taken after `pixi r test` overstate run time. **Check:** time against
-`maturin develop --uv --release`, which `pixi r nb-execute` runs first.
+`preinstall` runs `maturin develop --uv`, and `profile = "release"` under
+`[tool.maturin]` makes that an optimized build. This entry first called it a debug
+build, which no commit since April 2025 has produced. **Check:** the build log's
+`Finished` line names the profile.
 
 ### L-04: ssort can move code between notebook cells
 

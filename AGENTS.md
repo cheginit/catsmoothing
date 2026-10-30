@@ -96,7 +96,7 @@ runs the benchmarks.
 ## Gotchas
 
 - `test`, `typecheck`, and `benchmark` first run `preinstall` (`maturin develop --uv`),
-    a debug build. Time anything against `maturin develop --uv --release` (L-03).
+    which builds the optimized `release` profile that `[tool.maturin]` names (L-03).
 - The `test` task appends coverage across runs. Delete `.coverage` before trusting a
     number.
 - pyright checks only `catsmoothing/` and skips its tests.
