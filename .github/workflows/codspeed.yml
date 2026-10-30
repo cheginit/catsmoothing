@@ -25,7 +25,7 @@ jobs:
         cache: true
         cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
     - name: Run benchmarks
-      uses: CodSpeedHQ/action@f22792bfac16f3e14eb9fbea76f4a48e9cc22b93  # v4.19.1
+      uses: CodSpeedHQ/action@78102a468f96d8e0ccb92d0ec49425753fc42062  # v5.6.0
       with:
         mode: simulation
         token: ${{ secrets.CODSPEED_TOKEN }}
