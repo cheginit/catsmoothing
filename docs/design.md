@@ -166,7 +166,7 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
     serially on the calling thread, and the CodSpeed job sets `RAYON_NUM_THREADS=1`.
 - **Why (one thread):** Handing work to Rayon blocks the caller in a futex, which CPU
     simulation excludes and flags as dominated by system calls. Serial runs give
-    CodSpeed the same work with no system calls. CodSpeed's walltime instrument needs
+    CodSpeed the same work without the futex waits. CodSpeed's walltime instrument needs
     macro runners, which need an organization-owned repository. Local walltime is the
     same either way (11.3 ms for 500 lines of 100 vertices).
 - **Rejected:** One array per line, and a custom thread pool built on first use, which
