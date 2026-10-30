@@ -462,6 +462,9 @@ class TestBenchmark:
         line = shapely.LineString(verts)
         cs.smooth_linestrings(line, n_pts=n_pts, gaussian_sigmas=gaussian_sigma)
 
+    def test_line_distance(self, verts: list[tuple[float, float]]):
+        cs.smooth_linestrings(shapely.LineString(verts), distances=0.25)
+
     @pytest.mark.parametrize("gaussian_sigma", [None, 2])
     def test_tangents(self, verts: list[tuple[float, float]], gaussian_sigma: float):
         line = shapely.LineString(verts)
