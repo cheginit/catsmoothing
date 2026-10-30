@@ -429,6 +429,22 @@ def verts():
     return np.c_[x, y]
 
 
+@pytest.fixture
+def spiral():
+    t = np.linspace(0, 6 * np.pi, 2000)
+    return shapely.LineString(np.c_[(1 + t) * np.cos(t), (1 + t) * np.sin(t)])
+
+
+@pytest.fixture
+def lines():
+    rng = np.random.default_rng(123)
+    x = np.linspace(0, 1, 100)
+    return [
+        shapely.LineString(np.c_[x, np.sin(2 * np.pi * x) + i + 0.05 * rng.standard_normal(100)])
+        for i in range(500)
+    ]
+
+
 @pytest.mark.benchmark
 class TestBenchmark:
     @pytest.mark.parametrize(("alpha", "order"), list(product((0, 0.5, 1), (0, 1, 2))))
@@ -450,3 +466,34 @@ class TestBenchmark:
     def test_tangents(self, verts: list[tuple[float, float]], gaussian_sigma: float):
         line = shapely.LineString(verts)
         cs.linestrings_tangent_angles(line, gaussian_sigma)
+
+    def test_line_smooth(self, spiral: shapely.LineString):
+        cs.smooth_linestrings(spiral, n_pts=1000)
+
+    def test_lines_batch(self, lines: list[shapely.LineString]):
+        cs.smooth_linestrings(lines, n_pts=[100] * len(lines))
+
+    @pytest.mark.parametrize(
+        ("taubin_iterations", "gaussian_sigma", "sigma_units"),
+        [(10, None, "vertices"), (None, 0.25, "length")],
+    )
+    def test_line_presmoothing(
+        self,
+        verts: list[tuple[float, float]],
+        taubin_iterations: int | None,
+        gaussian_sigma: float | None,
+        sigma_units: Literal["vertices", "length"],
+    ):
+        cs.smooth_linestrings(
+            shapely.LineString(verts),
+            n_pts=1000,
+            gaussian_sigmas=gaussian_sigma,
+            sigma_units=sigma_units,
+            taubin_iterations=taubin_iterations,
+        )
+
+    @pytest.mark.parametrize("continuity", ["g2", "c2"])
+    def test_line_continuity(
+        self, verts: list[tuple[float, float]], continuity: Literal["g2", "c2"]
+    ):
+        cs.smooth_linestrings(shapely.LineString(verts), n_pts=1000, continuity=continuity)
