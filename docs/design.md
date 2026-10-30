@@ -271,6 +271,20 @@ Shapely-aware functions. NumPy and Shapely are the only runtime dependencies.
     once the repository's Pages source is GitHub Actions, and the Read the Docs project
     has to be retired by hand.
 
+### D-25: Release builds strip through the Cargo profile
+
+- **Status:** accepted (2026-10-30).
+- **Decision:** `[profile.release] strip = true` in `Cargo.toml` strips the extension,
+    and `[tool.maturin]` sets no `strip`. The CodSpeed job sets
+    `CARGO_PROFILE_RELEASE_STRIP=false`.
+- **Why:** A stripped extension shows every Rust frame in CodSpeed's flamegraphs as
+    `Unknown symbol`. maturin's `strip` applies after Cargo builds and has only a
+    `--strip` flag to turn it on, so no job could opt out. The x86_64 CPython 3.13
+    wheel's `.so` stays 780,912 bytes either way.
+- **Rejected:** `CARGO_PROFILE_RELEASE_DEBUG=true` and `-Clinker-features=-lld` in the
+    CodSpeed job (PR #59): maturin stripped both builds, so the profiled `.so` had no
+    `.symtab`.
+
 ## Lessons
 
 ### L-01: A probe of the released wheel can import the checkout

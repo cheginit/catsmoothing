@@ -78,8 +78,6 @@ bindings = "pyo3"
 features = [ "pyo3/extension-module", "python" ]
 # Build artifacts with the specified Cargo profile
 profile = "release"
-# Strip the library for minimum file size
-strip = true
 
 [tool.pixi.workspace]
 channels = [ "conda-forge" ]
