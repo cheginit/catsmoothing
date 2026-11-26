@@ -25,7 +25,7 @@ jobs:
         cache: true
         cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
     - name: Run benchmarks
-      uses: CodSpeedHQ/action@78102a468f96d8e0ccb92d0ec49425753fc42062  # v5.6.0
+      uses: CodSpeedHQ/action@b1f28b5eccf7cb5bfe6a2a89cb3053eb67f1150c  # v5.8.0
       env:
         # Keep the symbol table so flamegraphs name the Rust frames (D-25).
         CARGO_PROFILE_RELEASE_STRIP: false
